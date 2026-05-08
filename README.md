@@ -140,11 +140,60 @@ Click **Reload** at the top of the Web tab.
 - Visit `https://<yourname>.pythonanywhere.com/` — pageview should appear in
   GoatCounter within seconds
 
-### 7. (Later) Wire the laptop sync
+### 7. Wire the laptop → PA sync
 
-The `/sync/` endpoint and the laptop-side push script will be added in a
-following step. Until then the SQLite DB only has the 97 curated companies
-and zero events — the calendars will be empty placeholders.
+Now that the public site is up but empty, hook your laptop scrape to push
+each fresh window of events to PA after every successful 09:00 / 21:00 run.
+
+**On the laptop**, edit your project's `.env` and add two lines:
+
+```
+SGDR_PA_SYNC_URL=https://dividendsandreports.pythonanywhere.com/sync/
+SGDR_PA_SYNC_TOKEN=<exact same string you put in PA's WSGI as SYNC_SHARED_TOKEN>
+```
+
+Then restart the worker so it picks up the new env:
+
+```powershell
+docker compose up -d
+```
+
+Test the push manually first:
+
+```powershell
+docker compose exec web python manage.py sync_to_pa --dry-run
+```
+
+Output should look like:
+
+```
+sync_to_pa: window 2026-04-01 .. 2026-06-30 — 97 companies, 312 events,
+  148.6 KB payload → https://dividendsandreports.pythonanywhere.com/sync/
+dry-run — not posting
+```
+
+If that looks right, do the real push:
+
+```powershell
+docker compose exec web python manage.py sync_to_pa
+```
+
+Expect:
+
+```
+OK  {"ok": true, "window": [...], "companies_added": 97, "companies_updated": 0,
+     "events_added": 312, "events_updated": 0, "events_pruned": 0, "events_skipped": 0}
+```
+
+Refresh `https://dividendsandreports.pythonanywhere.com/calendar/agm-egm/` —
+you should now see real SGX tiles instead of empty calendar grids.
+
+**Auto-trigger:** the laptop's `_run_event_sync` job in `jobs/tasks.py` calls
+`sync_to_pa` automatically right after each successful scrape. So the 09:00
+and 21:00 SGT runs will keep PA in sync without any manual intervention.
+
+If `SGDR_PA_SYNC_URL` is unset, the auto-trigger silently no-ops — handy
+for dev-only work where you don't want every test scrape to hit PA.
 
 ## Updating later
 

@@ -1,17 +1,25 @@
+import json
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from django.conf import settings
+from django.db import transaction
 from django.http import (
+    HttpResponse,
     HttpResponseBadRequest,
     HttpResponseRedirect,
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.views.decorators.http import require_GET
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import VIEW_CATEGORY, Event
 from .window import SGT, three_months
+
+logger = logging.getLogger(__name__)
 
 
 VIEW_CATEGORY_KEYS = {key for key, _ in VIEW_CATEGORY}
@@ -203,3 +211,139 @@ def search(request):
         for c in qs.distinct()[:10]
     ]
     return JsonResponse(payload, safe=False)
+
+
+# --- Laptop -> PA sync endpoint --------------------------------------------
+
+@csrf_exempt
+@require_POST
+def sync_in(request):
+    """Receive a window of companies + events from the laptop scrape.
+
+    Auth: ``Authorization: Bearer <SYNC_SHARED_TOKEN>``.
+    Body (JSON):
+        {
+          "window_start": "YYYY-MM-DD",
+          "window_end":   "YYYY-MM-DD",
+          "companies":    [ {ticker, sgx_code, name, short_name, sector, ...}, ... ],
+          "events":       [ {ticker, event_type, view_category, event_date,
+                              title, sgx_announcement_url, details_json}, ... ]
+        }
+
+    Behaviour:
+      * Companies upserted by ticker.
+      * Events upserted by (company, event_type, event_date).
+      * Events that are inside the window but NOT in the payload are pruned —
+        they were either reclassified or no longer exist on SGX.
+      * Events outside the window are left alone (they age out as the window
+        rolls forward).
+    """
+    from apps.companies.models import Company
+
+    expected = getattr(settings, "SYNC_SHARED_TOKEN", "") or ""
+    if not expected:
+        return HttpResponse("sync token not configured", status=503)
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[7:] != expected:
+        return HttpResponse("unauthorized", status=401)
+
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("invalid JSON")
+
+    try:
+        ws = datetime.fromisoformat(payload["window_start"]).date()
+        we = datetime.fromisoformat(payload["window_end"]).date()
+    except (KeyError, ValueError, TypeError):
+        return HttpResponseBadRequest("missing/invalid window_start/window_end")
+
+    companies = payload.get("companies") or []
+    events = payload.get("events") or []
+
+    companies_added = companies_updated = 0
+    events_added = events_updated = events_skipped = 0
+    seen_event_keys: set[tuple[int, str, str]] = set()
+
+    with transaction.atomic():
+        for c in companies:
+            if not c.get("ticker"):
+                continue
+            _, created = Company.objects.update_or_create(
+                ticker=c["ticker"],
+                defaults={
+                    "sgx_code": c.get("sgx_code", ""),
+                    "name": c.get("name") or c["ticker"],
+                    "short_name": c.get("short_name") or c.get("name") or c["ticker"],
+                    "sector": c.get("sector", ""),
+                    "listing_board": c.get("listing_board", "Mainboard"),
+                    "investor_relations_url": c.get("investor_relations_url", ""),
+                },
+            )
+            companies_added += int(created)
+            companies_updated += int(not created)
+
+        ticker_to_company = {
+            c.ticker: c for c in Company.objects.filter(
+                ticker__in=[e.get("ticker") for e in events if e.get("ticker")]
+            )
+        }
+
+        for e in events:
+            ticker = e.get("ticker")
+            company = ticker_to_company.get(ticker)
+            if company is None:
+                events_skipped += 1
+                continue
+            try:
+                event_date = datetime.fromisoformat(e["event_date"]).date()
+            except (KeyError, ValueError, TypeError):
+                events_skipped += 1
+                continue
+            event_type = e.get("event_type") or ""
+            if not event_type:
+                events_skipped += 1
+                continue
+            seen_event_keys.add((company.id, event_type, event_date.isoformat()))
+            _, created = Event.objects.update_or_create(
+                company=company,
+                event_type=event_type,
+                event_date=event_date,
+                defaults={
+                    "view_category": e.get("view_category") or "OTHER",
+                    "title": e.get("title", ""),
+                    "sgx_announcement_url": e.get("sgx_announcement_url", ""),
+                    "company_ir_url": e.get("company_ir_url", ""),
+                    "details_json": e.get("details_json") or {},
+                },
+            )
+            events_added += int(created)
+            events_updated += int(not created)
+
+        # Prune events inside the window that didn't appear in the payload.
+        in_window = Event.objects.filter(event_date__gte=ws, event_date__lte=we)
+        to_delete_ids = []
+        for eid, cid, etype, edate in in_window.values_list(
+            "id", "company_id", "event_type", "event_date"
+        ):
+            if (cid, etype, edate.isoformat()) not in seen_event_keys:
+                to_delete_ids.append(eid)
+        events_pruned = 0
+        if to_delete_ids:
+            events_pruned, _ = Event.objects.filter(id__in=to_delete_ids).delete()
+
+    logger.info(
+        "sync_in: window=%s..%s companies +%d ~%d, events +%d ~%d -%d skipped %d",
+        ws, we, companies_added, companies_updated,
+        events_added, events_updated, events_pruned, events_skipped,
+    )
+    return JsonResponse({
+        "ok": True,
+        "window": [ws.isoformat(), we.isoformat()],
+        "companies_added": companies_added,
+        "companies_updated": companies_updated,
+        "events_added": events_added,
+        "events_updated": events_updated,
+        "events_pruned": events_pruned,
+        "events_skipped": events_skipped,
+    })

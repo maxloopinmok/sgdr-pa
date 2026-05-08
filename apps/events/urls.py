@@ -13,6 +13,8 @@ calendar_patterns = [
 api_patterns = [
     path("api/events/", views.api_events, name="api_events"),
     path("search/", views.search, name="search"),
+    # Bearer-token-protected. Receives the laptop's window of events.
+    path("sync/", views.sync_in, name="sync_in"),
 ]
 
 event_patterns = [
