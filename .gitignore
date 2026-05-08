@@ -5,3 +5,13 @@ db.sqlite3
 db.sqlite3-journal
 staticfiles/
 .env
+
+# Never let secrets / credential files into the repo.
+# (Add to a password manager, NOT this folder.)
+*.pdf
+*.pem
+*.key
+*-recovery-*
+*-credentials*
+*-secrets*
+proton-*
