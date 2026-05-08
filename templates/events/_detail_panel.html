@@ -1,0 +1,79 @@
+{% load static %}
+<div id="detail-card"
+     class="fixed inset-x-4 bottom-4 sm:inset-auto sm:right-6 sm:top-24 sm:w-96
+            rounded-lg border bg-white shadow-lg z-50">
+  <div class="flex items-start gap-3 border-b px-4 py-3">
+    <div class="flex-1">
+      <a href="{% url 'company_timeline' event.company.ticker %}"
+         class="text-sm font-semibold hover:underline">
+        {{ event.company.short_name }}
+        <span class="ml-1 font-mono text-xs text-slate-500">{{ event.company.ticker }}</span>
+      </a>
+      <p class="text-xs uppercase tracking-wide text-slate-500">{{ event.get_event_type_display }}</p>
+    </div>
+    <button type="button"
+            class="text-slate-400 hover:text-slate-700"
+            onclick="document.getElementById('detail-panel').innerHTML=''">×</button>
+  </div>
+
+  <div class="px-4 py-3 text-sm space-y-2">
+    {% if event.view_category == "DIVIDEND" %}
+      {% with d=event.details_json %}
+      <div class="grid grid-cols-[100px_1fr] gap-y-1">
+        <dt class="text-slate-500">Ex-Date</dt><dd>{{ d.ex_date|default:event.event_date }}</dd>
+        <dt class="text-slate-500">Payable Date</dt><dd>{{ d.payment_date|default:"—" }}</dd>
+        <dt class="text-slate-500">Declared</dt><dd>{{ d.declaration_date|default:"—" }}</dd>
+        <dt class="text-slate-500">Particulars</dt>
+        <dd>DIVIDEND : {{ d.currency|default:"" }} {{ d.amount_per_share|default:"—" }}
+            {% if d.dividend_kind %}<span class="ml-1 text-xs text-slate-500">({{ d.dividend_kind }})</span>{% endif %}
+        </dd>
+        {% if d.period %}<dt class="text-slate-500">Period</dt><dd>{{ d.period }}</dd>{% endif %}
+      </div>
+      {% endwith %}
+    {% elif event.view_category == "AGM_EGM" %}
+      {% with d=event.details_json %}
+      <div class="grid grid-cols-[100px_1fr] gap-y-1">
+        <dt class="text-slate-500">Date</dt><dd>{{ event.event_date }}</dd>
+        <dt class="text-slate-500">Time</dt><dd>{{ d.meeting_time|default:"—" }}</dd>
+        <dt class="text-slate-500">Venue</dt><dd>{{ d.venue|default:"—" }}</dd>
+        {% if d.virtual_url %}<dt class="text-slate-500">Virtual</dt><dd><a class="underline" href="{{ d.virtual_url }}" target="_blank" rel="noopener">join</a></dd>{% endif %}
+      </div>
+      <div class="flex flex-wrap gap-2 pt-2">
+        {% if d.agenda_pdf_url %}<a class="rounded border px-2 py-1 text-xs" href="{{ d.agenda_pdf_url }}" target="_blank" rel="noopener">Agenda PDF</a>{% endif %}
+        {% if d.circular_pdf_url %}<a class="rounded border px-2 py-1 text-xs" href="{{ d.circular_pdf_url }}" target="_blank" rel="noopener">Circular PDF</a>{% endif %}
+      </div>
+      {% endwith %}
+    {% elif event.view_category == "OTHER" %}
+      <div class="grid grid-cols-[100px_1fr] gap-y-1">
+        <dt class="text-slate-500">Ticker</dt>
+        <dd class="font-mono">{{ event.company.ticker }}</dd>
+        <dt class="text-slate-500">Company</dt>
+        <dd>{{ event.company.name|default:event.company.short_name }}</dd>
+        <dt class="text-slate-500">Date</dt>
+        <dd>{{ event.event_date }}</dd>
+        <dt class="text-slate-500">Announcement</dt>
+        <dd class="break-words">{{ event.title }}</dd>
+      </div>
+      <div class="pt-2">
+        <a class="inline-flex items-center rounded bg-slate-900 text-white px-3 py-1.5 text-xs"
+           href="{% url 'event_sgx_redirect' event.id %}" target="_blank" rel="noopener">
+          More Details →
+        </a>
+      </div>
+    {% elif event.view_category == "REPORT" %}
+      {% with d=event.details_json %}
+      <div class="grid grid-cols-[100px_1fr] gap-y-1">
+        <dt class="text-slate-500">Date</dt><dd>{{ event.event_date }}</dd>
+        <dt class="text-slate-500">Kind</dt><dd>{{ d.report_kind|default:event.get_event_type_display }}</dd>
+        {% if d.period_end %}<dt class="text-slate-500">Period end</dt><dd>{{ d.period_end }}</dd>{% endif %}
+      </div>
+      <div class="pt-2">
+        <a class="inline-flex items-center rounded bg-slate-900 text-white px-3 py-1.5 text-xs"
+           href="{% url 'event_sgx_redirect' event.id %}" target="_blank" rel="noopener">
+          Open on SGX →
+        </a>
+      </div>
+      {% endwith %}
+    {% endif %}
+  </div>
+</div>

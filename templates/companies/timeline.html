@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ company.short_name }} — SG Dividends Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-1">
+  <h1 class="text-2xl font-semibold">{{ company.short_name }}
+    <span class="ml-2 font-mono text-base text-slate-500">{{ company.ticker }}</span>
+  </h1>
+  <p class="text-sm text-slate-600">{{ company.name }}{% if company.sector %} · {{ company.sector }}{% endif %}</p>
+</section>
+
+<section class="mt-6 bg-white rounded shadow-sm divide-y">
+  {% for e in events %}
+  <div class="flex items-center gap-3 px-4 py-3 text-sm">
+    <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
+    <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+      {{ e.get_event_type_display }}
+    </span>
+    <span class="flex-1 truncate">{{ e.title }}</span>
+  </div>
+  {% empty %}
+  <p class="px-4 py-8 text-center text-sm text-slate-500">No events in the current window.</p>
+  {% endfor %}
+</section>
+{% endblock %}

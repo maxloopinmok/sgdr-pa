@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Other Announcements — SG Dividends Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-2">
+  <div class="flex items-baseline gap-3">
+    <h1 class="text-2xl font-semibold">Other Announcements</h1>
+    <span class="text-xs text-slate-500">
+      {{ window_start|date:"d M" }} – {{ today|date:"d M Y" }}
+    </span>
+  </div>
+  <p class="text-sm text-slate-600">
+    SGX announcements not already shown on the AGM/EGM, Dividends,
+    Acquisitions/Disposals, or Reports pages. Click any row for details.
+  </p>
+</section>
+
+<section class="mt-4">
+  <input type="search"
+         name="q"
+         value="{{ query }}"
+         placeholder="Filter by ticker or company name…"
+         autocomplete="off"
+         class="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+         hx-get="{% url 'calendar_other' %}"
+         hx-trigger="input changed delay:250ms, search"
+         hx-target="#other-rows"
+         hx-swap="innerHTML"
+         hx-push-url="true">
+</section>
+
+<section class="mt-4 bg-white rounded shadow-sm divide-y" id="other-rows">
+  {% include "calendar/_other_rows.html" %}
+</section>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Companies List — SG Dividends Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-2">
+  <div class="flex items-baseline gap-3">
+    <h1 class="text-2xl font-semibold">Companies List</h1>
+    <span class="text-xs text-slate-500">{{ total }} Mainboard companies tracked</span>
+  </div>
+  <p class="text-sm text-slate-600">
+    Grouped by SGX index membership per the Mar 2026 SGX Monthly Statistics
+    Report. Click a row to see that company's events in the rolling window.
+  </p>
+</section>
+
+{% for section in sections %}
+<section class="mt-6">
+  <h2 class="text-lg font-semibold text-slate-800">
+    {{ section.label }}
+    <span class="ml-2 text-sm font-normal text-slate-500">({{ section.count }})</span>
+  </h2>
+  <div class="mt-2 bg-white rounded shadow-sm divide-y">
+    {% for n, c in section.rows %}
+    <a class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50"
+       href="{% url 'company_timeline' c.ticker %}">
+      <span class="w-8 text-right text-slate-400 tabular-nums">{{ n }}.</span>
+      <span class="w-24 font-mono text-xs text-slate-700">{{ c.ticker }}</span>
+      <span class="flex-1 truncate">{{ c.short_name|default:c.name }}</span>
+      <span class="hidden sm:inline text-xs text-slate-500 truncate max-w-md">{{ c.name }}</span>
+    </a>
+    {% empty %}
+    <p class="px-4 py-4 text-center text-sm text-slate-500">No companies in this section.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

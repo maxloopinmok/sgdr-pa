@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{{ page_label }} — SG Dividends Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-2">
+  <div class="flex items-baseline gap-3">
+    <h1 class="text-2xl font-semibold">{{ page_label }}</h1>
+    <span class="text-xs text-slate-500">Mon–Sun · 3-month rolling window</span>
+    <button id="show-full-month" class="ml-auto hidden rounded border px-2 py-1 text-xs">Show full month</button>
+  </div>
+  <p class="text-sm text-slate-600">{% block lede %}{% endblock %}</p>
+</section>
+
+<div id="phone-default" class="mt-6"></div>
+
+<section id="four-month-stack" class="mt-6 space-y-10">
+  {% for m in months %}
+  <article class="bg-white rounded shadow-sm">
+    <h2 id="month-{{ m.year }}-{{ m.month }}"
+        class="sticky top-0 z-10 bg-white/90 backdrop-blur px-4 py-2 border-b text-lg font-medium">
+      {{ m.label }}
+    </h2>
+    <div class="p-2">
+      <div class="month-grid"
+           data-year="{{ m.year }}"
+           data-month="{{ m.month }}"
+           data-is-current="{% if m.is_current %}1{% else %}0{% endif %}"></div>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+<script>
+(function () {
+  const VIEW = "{{ view_category }}";
+  const EVENT_TYPES = "{{ event_types }}";
+  const FEED_URL = "{% url 'api_events' %}";
+  const TODAY = new Date("{{ today_iso }}");
+  const BP = window.SGDR_BREAKPOINTS || { PHONE_MAX_WIDTH: 768, PHONE_DAY_DENSITY_THRESHOLD: 4 };
+
+  function feedUrl(startStr, endStr) {
+    let u = `${FEED_URL}?view=${encodeURIComponent(VIEW)}` +
+            `&start=${startStr}&end=${endStr}`;
+    if (EVENT_TYPES) u += `&event_type=${encodeURIComponent(EVENT_TYPES)}`;
+    return u;
+  }
+
+  function eventClick(info) {
+    // All calendar tiles open the SGX announcement page in a new tab.
+    info.jsEvent.preventDefault();
+    const url = info.event.extendedProps.detail_url;
+    if (!url) return;
+    if (window.goatcounter && window.goatcounter.count) {
+      window.goatcounter.count({
+        path: "/_event/sgx_redirect/" + info.event.extendedProps.ticker
+              + "/" + info.event.extendedProps.event_type,
+        title: "sgx_redirect",
+        event: true,
+      });
+    }
+    window.open(url, "_blank", "noopener");
+  }
+
+  function mountMonthCalendar(el) {
+    const year = parseInt(el.dataset.year, 10);
+    const month = parseInt(el.dataset.month, 10); // 1-12
+    const initialDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    // Build end-of-window date as a string to avoid timezone drift —
+    // new Date().toISOString() converts to UTC and chops off the last day
+    // for users east of UTC (the bug that hid 30 April).
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear  = month === 12 ? year + 1 : year;
+    const endDate   = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
+    const cal = new FullCalendar.Calendar(el, {
+      initialView: "dayGridMonth",
+      initialDate,
+      firstDay: 1,
+      headerToolbar: false,
+      validRange: {
+        start: initialDate,
+        end:   endDate,
+      },
+      height: "auto",
+      eventClick,
+      events: function (info, success, failure) {
+        fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
+          .then(r => r.json()).then(success).catch(failure);
+      },
+    });
+    cal.render();
+    return cal;
+  }
+
+  function mountAll() {
+    document.querySelectorAll(".month-grid").forEach(mountMonthCalendar);
+    // Scroll to the first month — the past month, which usually carries the
+    // densest event count for users opening the page mid-cycle.
+    const first = document.querySelector(".month-grid");
+    if (first) {
+      first.closest("article").scrollIntoView({ block: "start" });
+    }
+  }
+
+  async function phoneDefault() {
+    const todayStr = TODAY.toISOString().slice(0, 10);
+    const next = new Date(TODAY); next.setDate(TODAY.getDate() + 1);
+    const todayEvents = await fetch(feedUrl(todayStr, next.toISOString().slice(0,10)))
+                                  .then(r => r.json()).catch(() => []);
+    const stack = document.getElementById("four-month-stack");
+    const phone = document.getElementById("phone-default");
+    const showBtn = document.getElementById("show-full-month");
+    stack.classList.add("hidden");
+    showBtn.classList.remove("hidden");
+    showBtn.addEventListener("click", () => {
+      phone.innerHTML = "";
+      stack.classList.remove("hidden");
+      showBtn.classList.add("hidden");
+      mountAll();
+    });
+    const cal = new FullCalendar.Calendar(phone, {
+      initialView: todayEvents.length > BP.PHONE_DAY_DENSITY_THRESHOLD ? "listDay" : "dayGridWeek",
+      initialDate: todayStr,
+      firstDay: 1,
+      headerToolbar: false,
+      height: "auto",
+      eventClick,
+      events: function (info, success, failure) {
+        fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
+          .then(r => r.json()).then(success).catch(failure);
+      },
+    });
+    cal.render();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    if (window.innerWidth < BP.PHONE_MAX_WIDTH) {
+      phoneDefault();
+    } else {
+      mountAll();
+    }
+  });
+})();
+</script>
+{% endblock %}
