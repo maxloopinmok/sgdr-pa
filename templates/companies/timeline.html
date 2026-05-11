@@ -11,6 +11,16 @@
 
 <section class="mt-6 bg-white rounded shadow-sm divide-y">
   {% for e in events %}
+  {% if e.sgx_announcement_url %}
+  <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+     class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50 transition-colors">
+    <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
+    <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+      {{ e.get_event_type_display }}
+    </span>
+    <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
+  </a>
+  {% else %}
   <div class="flex items-center gap-3 px-4 py-3 text-sm">
     <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
     <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
@@ -18,6 +28,7 @@
     </span>
     <span class="flex-1 truncate">{{ e.title }}</span>
   </div>
+  {% endif %}
   {% empty %}
   <p class="px-4 py-8 text-center text-sm text-slate-500">No events in the current window.</p>
   {% endfor %}
