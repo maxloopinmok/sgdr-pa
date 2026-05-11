@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('events', '0002_alter_event_event_type'),
+        ('events', '0003_event_event_datetime'),
     ]
 
     operations = [
