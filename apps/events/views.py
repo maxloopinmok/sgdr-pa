@@ -96,7 +96,10 @@ def calendar_other(request):
                # Acquisitions / Disposals have a dedicated calendar page.
                .exclude(event_type="OTH_ACQ_DISPOSAL")
                .select_related("company")
-               .order_by("-event_date", "company__ticker", "-id"))
+               # Latest first. event_datetime is the SGX broadcast time and
+               # gives within-day ordering; event_date is the tiebreaker for
+               # rows still missing a datetime (older sync).
+               .order_by("-event_datetime", "-event_date", "company__ticker", "-id"))
 
     if q:
         from django.db.models import Q
@@ -109,6 +112,7 @@ def calendar_other(request):
     rows = [{
         "id": e.pk,
         "event_date": e.event_date,
+        "event_datetime": e.event_datetime,
         "ticker": e.company.ticker,
         "short_name": e.company.short_name,
         "title": e.title,
@@ -150,12 +154,21 @@ def api_events(request):
         if types:
             qs = qs.filter(event_type__in=types)
 
+    # Earliest-first within each day so the day-box reads top-down in
+    # chronological order. event_datetime is the SGX broadcast timestamp;
+    # event_date is the tiebreaker for rows without one.
+    qs = qs.order_by("event_date", "event_datetime", "company__ticker")
     payload = []
     for e in qs:
         # All calendar tiles open the actual SGX announcement page in a new
         # tab. The HTMX detail panel is reserved for the Other Announcements
         # list page, which constructs its own button rows server-side.
         detail_url = reverse("event_sgx_redirect", args=[e.pk])
+        broadcast_iso = (e.event_datetime.astimezone(SGT).isoformat()
+                         if e.event_datetime else "")
+        broadcast_tooltip = (e.event_datetime.astimezone(SGT)
+                                .strftime("Announcement Time: %d %b %Y, %H:%M SGT")
+                             if e.event_datetime else "")
         payload.append({
             "id": e.pk,
             "title": f"{e.company.short_name} — {e.title}",
@@ -167,6 +180,8 @@ def api_events(request):
                 "event_type": e.event_type,
                 "view_category": e.view_category,
                 "detail_url": detail_url,
+                "broadcast_iso": broadcast_iso,
+                "broadcast_tooltip": broadcast_tooltip,
             },
         })
     return JsonResponse(payload, safe=False)
@@ -304,6 +319,15 @@ def sync_in(request):
             if not event_type:
                 events_skipped += 1
                 continue
+            # event_datetime is optional (rows synced before the field
+            # existed won't include it). Accept ISO 8601 with timezone.
+            event_dt = None
+            edt_raw = e.get("event_datetime")
+            if isinstance(edt_raw, str) and edt_raw:
+                try:
+                    event_dt = datetime.fromisoformat(edt_raw.replace("Z", "+00:00"))
+                except ValueError:
+                    event_dt = None
             seen_event_keys.add((company.id, event_type, event_date.isoformat()))
             _, created = Event.objects.update_or_create(
                 company=company,
@@ -311,6 +335,7 @@ def sync_in(request):
                 event_date=event_date,
                 defaults={
                     "view_category": e.get("view_category") or "OTHER",
+                    "event_datetime": event_dt,
                     "title": e.get("title", ""),
                     "sgx_announcement_url": e.get("sgx_announcement_url", ""),
                     "company_ir_url": e.get("company_ir_url", ""),

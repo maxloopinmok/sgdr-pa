@@ -34,6 +34,10 @@ class Event(models.Model):
     event_type = models.CharField(max_length=32, choices=EVENT_TYPES)
     view_category = models.CharField(max_length=16, choices=VIEW_CATEGORY, db_index=True)
     event_date = models.DateField(db_index=True)
+    # SGX broadcast timestamp (when the announcement was filed), stored
+    # tz-aware in UTC. Surfaces as a tooltip on the row UI. Nullable for
+    # rows synced before this field existed.
+    event_datetime = models.DateTimeField(null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     sgx_announcement_url = models.URLField(blank=True)
     company_ir_url = models.URLField(blank=True)

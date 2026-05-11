@@ -65,6 +65,8 @@ def company_timeline(request, ticker: str):
 
     events = (company.events
               .filter(event_date__gte=start, event_date__lt=end_exclusive)
-              .order_by("-event_date"))
+              # Latest first; event_datetime gives within-day ordering, event_date
+              # is the fallback for rows missing a datetime.
+              .order_by("-event_datetime", "-event_date"))
     return render(request, "companies/timeline.html",
                   {"company": company, "events": events})

@@ -13,6 +13,7 @@
   {% for e in events %}
   {% if e.sgx_announcement_url %}
   <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+     {% if e.event_datetime %}title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}
      class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50 transition-colors">
     <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
     <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
@@ -21,7 +22,8 @@
     <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
   </a>
   {% else %}
-  <div class="flex items-center gap-3 px-4 py-3 text-sm">
+  <div class="flex items-center gap-3 px-4 py-3 text-sm"
+       {% if e.event_datetime %}title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}>
     <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
     <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
       {{ e.get_event_type_display }}

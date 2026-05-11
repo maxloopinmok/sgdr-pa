@@ -61,6 +61,12 @@
     window.open(url, "_blank", "noopener");
   }
 
+  function eventDidMount(info) {
+    // Native browser tooltip showing the SGX broadcast time (SGT).
+    const tip = info.event.extendedProps.broadcast_tooltip;
+    if (tip) info.el.setAttribute("title", tip);
+  }
+
   function mountMonthCalendar(el) {
     const year = parseInt(el.dataset.year, 10);
     const month = parseInt(el.dataset.month, 10); // 1-12
@@ -82,6 +88,10 @@
       },
       height: "auto",
       eventClick,
+      eventDidMount,
+      // Within a day-box, sort earliest broadcast time first (top → bottom).
+      // Falls back to title for events that don't have a broadcast_iso.
+      eventOrder: "extendedProps.broadcast_iso,title",
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
@@ -124,6 +134,10 @@
       headerToolbar: false,
       height: "auto",
       eventClick,
+      eventDidMount,
+      // Within a day-box, sort earliest broadcast time first (top → bottom).
+      // Falls back to title for events that don't have a broadcast_iso.
+      eventOrder: "extendedProps.broadcast_iso,title",
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
