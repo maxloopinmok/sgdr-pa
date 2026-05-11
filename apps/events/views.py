@@ -26,7 +26,8 @@ VIEW_CATEGORY_KEYS = {key for key, _ in VIEW_CATEGORY}
 
 
 def _calendar_context(view_category: str, page_label: str,
-                      event_types: list[str] | None = None) -> dict:
+                      event_types: list[str] | None = None,
+                      show_schedule_toggle: bool = False) -> dict:
     today = datetime.now(SGT).date()
     return {
         "view_category": view_category,
@@ -36,13 +37,17 @@ def _calendar_context(view_category: str, page_label: str,
         # Comma-separated event_type filter sent on /api/events/?event_type=...
         # Empty string means "no extra filter beyond view_category".
         "event_types": ",".join(event_types) if event_types else "",
+        # AGM/EGM is the only view today that supports the
+        # Announcements vs. Meeting Schedules segmented toggle.
+        "show_schedule_toggle": show_schedule_toggle,
     }
 
 
 @require_GET
 def calendar_agm_egm(request):
     return render(request, "calendar/agm_egm.html",
-                  _calendar_context("AGM_EGM", "AGM / EGM"))
+                  _calendar_context("AGM_EGM", "AGM / EGM",
+                                    show_schedule_toggle=True))
 
 
 @require_GET
@@ -132,18 +137,36 @@ def calendar_other(request):
 
 @require_GET
 def api_events(request):
-    """JSON event feed for FullCalendar; filtered by view + [start, end]."""
+    """JSON event feed for FullCalendar; filtered by view + [start, end].
+
+    When ``mode=schedule`` is set (only meaningful for view=AGM_EGM), the
+    feed switches to the *meeting* axis: events are filtered to those with
+    a populated ``meeting_datetime`` and the calendar tile lands on the
+    meeting day, not the announcement day. The tile is rendered as a
+    timed event so FullCalendar's natural within-day sort places earlier
+    meetings above later ones in the same date box.
+    """
     view = request.GET.get("view", "")
     if view not in VIEW_CATEGORY_KEYS:
         return HttpResponseBadRequest("invalid view")
+    mode = request.GET.get("mode", "announcements")
+    schedule_mode = (mode == "schedule" and view == "AGM_EGM")
+
     start = request.GET.get("start")
     end = request.GET.get("end")
     qs = Event.objects.filter(view_category=view).select_related("company")
     try:
-        if start:
-            qs = qs.filter(event_date__gte=datetime.fromisoformat(start[:10]).date())
-        if end:
-            qs = qs.filter(event_date__lt=datetime.fromisoformat(end[:10]).date())
+        if schedule_mode:
+            qs = qs.filter(meeting_datetime__isnull=False)
+            if start:
+                qs = qs.filter(meeting_datetime__date__gte=datetime.fromisoformat(start[:10]).date())
+            if end:
+                qs = qs.filter(meeting_datetime__date__lt=datetime.fromisoformat(end[:10]).date())
+        else:
+            if start:
+                qs = qs.filter(event_date__gte=datetime.fromisoformat(start[:10]).date())
+            if end:
+                qs = qs.filter(event_date__lt=datetime.fromisoformat(end[:10]).date())
     except ValueError:
         return HttpResponseBadRequest("invalid start/end")
 
@@ -155,9 +178,12 @@ def api_events(request):
             qs = qs.filter(event_type__in=types)
 
     # Earliest-first within each day so the day-box reads top-down in
-    # chronological order. event_datetime is the SGX broadcast timestamp;
-    # event_date is the tiebreaker for rows without one.
-    qs = qs.order_by("event_date", "event_datetime", "company__ticker")
+    # chronological order. In schedule mode the meeting_datetime is the
+    # primary sort key; otherwise the SGX broadcast event_datetime is.
+    if schedule_mode:
+        qs = qs.order_by("meeting_datetime", "company__ticker")
+    else:
+        qs = qs.order_by("event_date", "event_datetime", "company__ticker")
     payload = []
     for e in qs:
         # All calendar tiles open the actual SGX announcement page in a new
@@ -169,21 +195,41 @@ def api_events(request):
         broadcast_tooltip = (e.event_datetime.astimezone(SGT)
                                 .strftime("Announcement Time: %d %b %Y, %H:%M SGT")
                              if e.event_datetime else "")
-        payload.append({
-            "id": e.pk,
-            "title": f"{e.company.short_name} — {e.title}",
-            "start": e.event_date.isoformat(),
-            "allDay": True,
-            "url": "",  # suppress FullCalendar's default link behavior
-            "extendedProps": {
-                "ticker": e.company.ticker,
-                "event_type": e.event_type,
-                "view_category": e.view_category,
-                "detail_url": detail_url,
-                "broadcast_iso": broadcast_iso,
-                "broadcast_tooltip": broadcast_tooltip,
-            },
-        })
+        if schedule_mode and e.meeting_datetime is not None:
+            sgt_dt = e.meeting_datetime.astimezone(SGT)
+            time_label = sgt_dt.strftime("%H:%M")
+            payload.append({
+                "id": e.pk,
+                "title": f"{time_label} {e.company.short_name} — {e.title}",
+                "start": sgt_dt.isoformat(),
+                "allDay": False,
+                "url": "",
+                "extendedProps": {
+                    "ticker": e.company.ticker,
+                    "event_type": e.event_type,
+                    "view_category": e.view_category,
+                    "detail_url": detail_url,
+                    "meeting_time": sgt_dt.strftime("%Y-%m-%d %H:%M SGT"),
+                    "broadcast_iso": broadcast_iso,
+                    "broadcast_tooltip": broadcast_tooltip,
+                },
+            })
+        else:
+            payload.append({
+                "id": e.pk,
+                "title": f"{e.company.short_name} — {e.title}",
+                "start": e.event_date.isoformat(),
+                "allDay": True,
+                "url": "",
+                "extendedProps": {
+                    "ticker": e.company.ticker,
+                    "event_type": e.event_type,
+                    "view_category": e.view_category,
+                    "detail_url": detail_url,
+                    "broadcast_iso": broadcast_iso,
+                    "broadcast_tooltip": broadcast_tooltip,
+                },
+            })
     return JsonResponse(payload, safe=False)
 
 
@@ -319,15 +365,18 @@ def sync_in(request):
             if not event_type:
                 events_skipped += 1
                 continue
-            # event_datetime is optional (rows synced before the field
-            # existed won't include it). Accept ISO 8601 with timezone.
-            event_dt = None
-            edt_raw = e.get("event_datetime")
-            if isinstance(edt_raw, str) and edt_raw:
-                try:
-                    event_dt = datetime.fromisoformat(edt_raw.replace("Z", "+00:00"))
-                except ValueError:
-                    event_dt = None
+            # event_datetime and meeting_datetime are optional — rows synced
+            # before each field existed won't include them. Both accepted as
+            # ISO 8601 strings with timezone.
+            def _parse_optional_iso(value):
+                if isinstance(value, str) and value:
+                    try:
+                        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    except ValueError:
+                        return None
+                return None
+            event_dt = _parse_optional_iso(e.get("event_datetime"))
+            meeting_dt = _parse_optional_iso(e.get("meeting_datetime"))
             seen_event_keys.add((company.id, event_type, event_date.isoformat()))
             _, created = Event.objects.update_or_create(
                 company=company,
@@ -336,6 +385,7 @@ def sync_in(request):
                 defaults={
                     "view_category": e.get("view_category") or "OTHER",
                     "event_datetime": event_dt,
+                    "meeting_datetime": meeting_dt,
                     "title": e.get("title", ""),
                     "sgx_announcement_url": e.get("sgx_announcement_url", ""),
                     "company_ir_url": e.get("company_ir_url", ""),

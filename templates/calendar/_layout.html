@@ -6,7 +6,24 @@
   <div class="flex items-baseline gap-3">
     <h1 class="text-2xl font-semibold">{{ page_label }}</h1>
     <span class="text-xs text-slate-500">Mon–Sun · 3-month rolling window</span>
+    {% if show_schedule_toggle %}
+    <div id="schedule-toggle"
+         class="ml-auto inline-flex rounded border bg-white p-0.5 text-xs"
+         role="tablist"
+         aria-label="Display mode">
+      <button type="button"
+              data-mode="announcements"
+              class="schedule-toggle-btn rounded px-3 py-1 bg-slate-800 text-white"
+              aria-pressed="true">Announcements</button>
+      <button type="button"
+              data-mode="schedule"
+              class="schedule-toggle-btn rounded px-3 py-1 text-slate-700 hover:bg-slate-100"
+              aria-pressed="false">Meeting Schedules</button>
+    </div>
+    <button id="show-full-month" class="hidden rounded border px-2 py-1 text-xs">Show full month</button>
+    {% else %}
     <button id="show-full-month" class="ml-auto hidden rounded border px-2 py-1 text-xs">Show full month</button>
+    {% endif %}
   </div>
   <p class="text-sm text-slate-600">{% block lede %}{% endblock %}</p>
 </section>
@@ -37,12 +54,52 @@
   const FEED_URL = "{% url 'api_events' %}";
   const TODAY = new Date("{{ today_iso }}");
   const BP = window.SGDR_BREAKPOINTS || { PHONE_MAX_WIDTH: 768, PHONE_DAY_DENSITY_THRESHOLD: 4 };
+  // "announcements" (default) or "schedule" — only AGM/EGM ships the
+  // toggle, but the state lives at module scope so feedUrl can read it
+  // without prop drilling. Persisted in localStorage so refresh / back
+  // navigation keeps the user's choice.
+  const MODE_STORAGE_KEY = `sgdr.calendarMode.${VIEW}`;
+  let displayMode = (localStorage.getItem(MODE_STORAGE_KEY) === "schedule")
+    ? "schedule" : "announcements";
+  const mountedCalendars = [];
 
   function feedUrl(startStr, endStr) {
     let u = `${FEED_URL}?view=${encodeURIComponent(VIEW)}` +
             `&start=${startStr}&end=${endStr}`;
     if (EVENT_TYPES) u += `&event_type=${encodeURIComponent(EVENT_TYPES)}`;
+    if (displayMode === "schedule") u += "&mode=schedule";
     return u;
+  }
+
+  function paintToggle() {
+    document.querySelectorAll(".schedule-toggle-btn").forEach((btn) => {
+      const on = btn.dataset.mode === displayMode;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("bg-slate-800", on);
+      btn.classList.toggle("text-white", on);
+      btn.classList.toggle("text-slate-700", !on);
+      btn.classList.toggle("hover:bg-slate-100", !on);
+    });
+  }
+
+  function setMode(nextMode) {
+    if (nextMode !== "announcements" && nextMode !== "schedule") return;
+    if (nextMode === displayMode) return;
+    displayMode = nextMode;
+    try { localStorage.setItem(MODE_STORAGE_KEY, nextMode); } catch (e) {}
+    paintToggle();
+    mountedCalendars.forEach((cal) => cal.refetchEvents());
+  }
+
+  function wireToggle() {
+    const wrap = document.getElementById("schedule-toggle");
+    if (!wrap) return;
+    wrap.addEventListener("click", (evt) => {
+      const btn = evt.target.closest(".schedule-toggle-btn");
+      if (!btn) return;
+      setMode(btn.dataset.mode);
+    });
+    paintToggle();
   }
 
   function eventClick(info) {
@@ -62,7 +119,14 @@
   }
 
   function eventDidMount(info) {
-    // Native browser tooltip showing the SGX broadcast time (SGT).
+    // Native browser tooltip. In schedule mode each tile carries an SGT
+    // meeting_time string — show that. Otherwise fall back to the SGX
+    // broadcast time tooltip.
+    const mt = info.event.extendedProps.meeting_time;
+    if (mt) {
+      info.el.setAttribute("title", `${mt} — ${info.event.title}`);
+      return;
+    }
     const tip = info.event.extendedProps.broadcast_tooltip;
     if (tip) info.el.setAttribute("title", tip);
   }
@@ -91,13 +155,19 @@
       eventDidMount,
       // Within a day-box, sort earliest broadcast time first (top → bottom).
       // Falls back to title for events that don't have a broadcast_iso.
-      eventOrder: "extendedProps.broadcast_iso,title",
+      // Schedule-mode tiles are timed (non-allDay) — FullCalendar respects
+      // ``start`` as the first sort key for those. Announcement-mode tiles
+      // are allDay, so they all share a 00:00 start and fall through to the
+      // broadcast_iso tiebreaker (earliest broadcast at top).
+      eventOrder: "start,extendedProps.broadcast_iso,title",
+      displayEventTime: false,
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
       },
     });
     cal.render();
+    mountedCalendars.push(cal);
     return cal;
   }
 
@@ -137,16 +207,23 @@
       eventDidMount,
       // Within a day-box, sort earliest broadcast time first (top → bottom).
       // Falls back to title for events that don't have a broadcast_iso.
-      eventOrder: "extendedProps.broadcast_iso,title",
+      // Schedule-mode tiles are timed (non-allDay) — FullCalendar respects
+      // ``start`` as the first sort key for those. Announcement-mode tiles
+      // are allDay, so they all share a 00:00 start and fall through to the
+      // broadcast_iso tiebreaker (earliest broadcast at top).
+      eventOrder: "start,extendedProps.broadcast_iso,title",
+      displayEventTime: false,
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
       },
     });
     cal.render();
+    mountedCalendars.push(cal);
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    wireToggle();
     if (window.innerWidth < BP.PHONE_MAX_WIDTH) {
       phoneDefault();
     } else {

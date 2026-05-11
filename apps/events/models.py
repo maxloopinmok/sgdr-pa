@@ -38,6 +38,11 @@ class Event(models.Model):
     # tz-aware in UTC. Surfaces as a tooltip on the row UI. Nullable for
     # rows synced before this field existed.
     event_datetime = models.DateTimeField(null=True, blank=True, db_index=True)
+    # AGM/EGM scheduled meeting datetime, tz-aware in UTC. Set on the laptop
+    # by services/sgx/agm_detail.py and pushed to PA via /sync/. Nullable:
+    # announcements without a structured "Meeting Date and Time" field don't
+    # appear in the Schedules calendar view.
+    meeting_datetime = models.DateTimeField(null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     sgx_announcement_url = models.URLField(blank=True)
     company_ir_url = models.URLField(blank=True)
