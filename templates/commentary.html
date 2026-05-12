@@ -5,51 +5,99 @@
 <section class="space-y-2">
   <div class="flex items-baseline gap-3">
     <h1 class="text-2xl font-semibold">Stocks Commentary</h1>
-    <span class="text-xs text-slate-500">latest post · refreshed every ~15 min</span>
+    <span class="text-xs text-slate-500">latest post</span>
     <a href="{{ blog_url }}" target="_blank" rel="noopener"
        class="ml-auto rounded border px-2 py-1 text-xs hover:bg-slate-100">All posts ↗</a>
   </div>
 </section>
 
-{% if post %}
-<article class="mt-6 bg-white rounded shadow-sm p-6">
-  <header class="mb-4 space-y-1">
-    <h2 class="text-xl font-semibold leading-tight">
-      {% if post.link %}
-      <a href="{{ post.link }}" target="_blank" rel="noopener"
-         class="hover:underline">{{ post.title }}</a>
-      {% else %}
-      {{ post.title }}
-      {% endif %}
-    </h2>
-    {% if post.published %}
-    <p class="text-xs text-slate-500">
-      Published {{ post.published|date:"j M Y" }}
-    </p>
-    {% endif %}
-  </header>
-  {# Trusted content — this is Max's own blog. Render the embedded HTML
-     directly so images, links, lists, and formatting survive. #}
-  <div class="commentary-body max-w-none text-slate-800 leading-relaxed space-y-3">
-    {{ post.content_html|safe }}
-  </div>
-  {% if post.link %}
-  <footer class="mt-6 pt-4 border-t text-sm text-slate-500">
-    Originally posted at
-    <a href="{{ post.link }}" target="_blank" rel="noopener"
-       class="text-slate-700 hover:underline">somethingusefulforinvestors.blogspot.com</a>.
-  </footer>
-  {% endif %}
-</article>
-{% else %}
-<article class="mt-6 bg-white rounded shadow-sm p-6">
-  <p class="text-slate-700">
+<article id="commentary-card" class="mt-6 bg-white rounded shadow-sm p-6">
+  <div id="commentary-loading" class="text-sm text-slate-500">Loading latest post…</div>
+  <div id="commentary-content" class="hidden"></div>
+  <div id="commentary-error" class="hidden text-slate-700">
     Couldn't load the latest post just now. Please visit the blog directly:
     <a href="{{ blog_url }}" target="_blank" rel="noopener"
        class="text-slate-900 underline">{{ blog_url }}</a>
-  </p>
+  </div>
 </article>
-{% endif %}
+
+<script>
+// Blogger's JSON-P feed delivers a JSON payload wrapped in a callback.
+// We register that callback before the <script> tag fetches the feed.
+window.sgdrRenderLatestPost = function (json) {
+  try {
+    const feed = json && json.feed;
+    const entries = feed && feed.entry;
+    if (!entries || !entries.length) {
+      showError();
+      return;
+    }
+    const e = entries[0];
+    const title = (e.title && e.title.$t) || "(untitled)";
+    const contentHtml = (e.content && e.content.$t) || "";
+    const publishedRaw = (e.published && e.published.$t) || "";
+    let publishedLabel = "";
+    if (publishedRaw) {
+      const d = new Date(publishedRaw);
+      if (!isNaN(d)) {
+        publishedLabel = d.toLocaleDateString(undefined, {
+          day: "numeric", month: "short", year: "numeric",
+        });
+      }
+    }
+    const alternate = (e.link || []).find(function (l) { return l.rel === "alternate"; });
+    const postUrl = (alternate && alternate.href) || "";
+
+    const titleHtml = postUrl
+      ? '<a href="' + escapeAttr(postUrl) + '" target="_blank" rel="noopener" class="hover:underline">' + escapeText(title) + '</a>'
+      : escapeText(title);
+
+    const html =
+      '<header class="mb-4 space-y-1">' +
+        '<h2 class="text-xl font-semibold leading-tight">' + titleHtml + '</h2>' +
+        (publishedLabel ? '<p class="text-xs text-slate-500">Published ' + escapeText(publishedLabel) + '</p>' : '') +
+      '</header>' +
+      '<div class="commentary-body max-w-none text-slate-800 leading-relaxed space-y-3">' + contentHtml + '</div>' +
+      (postUrl
+        ? '<footer class="mt-6 pt-4 border-t text-sm text-slate-500">Originally posted at <a href="' + escapeAttr(postUrl) + '" target="_blank" rel="noopener" class="text-slate-700 hover:underline">somethingusefulforinvestors.blogspot.com</a>.</footer>'
+        : '');
+
+    const target = document.getElementById("commentary-content");
+    target.innerHTML = html;
+    target.classList.remove("hidden");
+    document.getElementById("commentary-loading").classList.add("hidden");
+  } catch (err) {
+    console.error("commentary render failed:", err);
+    showError();
+  }
+};
+
+function showError() {
+  document.getElementById("commentary-loading").classList.add("hidden");
+  document.getElementById("commentary-content").classList.add("hidden");
+  document.getElementById("commentary-error").classList.remove("hidden");
+}
+
+// Only escape title + date — the post BODY is trusted HTML from Max's own
+// blog and is intentionally inserted as-is so images, links, lists and
+// formatting survive.
+function escapeText(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c];
+  });
+}
+function escapeAttr(s) { return escapeText(s); }
+
+// Safety net: if the JSON-P script doesn't load within 8 s, show the
+// fallback. Common causes: ad-blockers, network issues, Blogger 5xx.
+setTimeout(function () {
+  if (!document.getElementById("commentary-content").classList.contains("hidden")) return;
+  showError();
+}, 8000);
+</script>
+<script async
+        src="{{ feed_jsonp_url }}"
+        onerror="showError()"></script>
 
 <style>
   /* Blogger's embedded HTML uses raw <p>, <img>, <ul>, etc. Tailwind's
