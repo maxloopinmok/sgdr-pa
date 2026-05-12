@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from calendar import month_name, monthrange
+from calendar import month_name
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -28,16 +28,16 @@ def three_months(today: date | None = None) -> list[dict]:
 
 
 def two_months(today: date | None = None) -> tuple[date, date]:
-    """Strict calendar window: first day of previous month → last day of current month.
+    """Strict calendar window for the OHLCV history list: first day of
+    previous month → today (SGT).
 
-    Used by the company timeline's OHLCV history list. Past-and-present only —
-    no future bars — which matches the announcement-list semantics on that page.
+    The "two calendar months" scope is prev month + current month, but the
+    end is clamped to today since this is a history list — future trading
+    days haven't happened yet and shouldn't render as "No trading" rows.
     """
     today = today or datetime.now(SGT).date()
     if today.month == 1:
         start = date(today.year - 1, 12, 1)
     else:
         start = date(today.year, today.month - 1, 1)
-    last_day = monthrange(today.year, today.month)[1]
-    end = date(today.year, today.month, last_day)
-    return start, end
+    return start, today
