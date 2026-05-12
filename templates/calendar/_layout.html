@@ -18,7 +18,7 @@
       <button type="button"
               data-mode="schedule"
               class="schedule-toggle-btn rounded px-3 py-1 text-slate-700 hover:bg-slate-100"
-              aria-pressed="false">Meeting Schedules</button>
+              aria-pressed="false">{{ schedule_toggle_label }}</button>
     </div>
     <button id="show-full-month" class="hidden rounded border px-2 py-1 text-xs">Show full month</button>
     {% else %}
@@ -119,15 +119,20 @@
   }
 
   function eventDidMount(info) {
-    // Native browser tooltip. In schedule mode each tile carries an SGT
-    // meeting_time string — show that. Otherwise fall back to the SGX
-    // broadcast time tooltip.
-    const mt = info.event.extendedProps.meeting_time;
-    if (mt) {
-      info.el.setAttribute("title", `${mt} — ${info.event.title}`);
+    // Native browser tooltip. Priority:
+    //   1. dividend_tooltip — Ex Date + currency + amount + title.
+    //   2. meeting_time — AGM/EGM SGT timestamp + title.
+    //   3. broadcast_tooltip — SGX announcement broadcast time.
+    const ep = info.event.extendedProps;
+    if (ep.dividend_tooltip) {
+      info.el.setAttribute("title", ep.dividend_tooltip);
       return;
     }
-    const tip = info.event.extendedProps.broadcast_tooltip;
+    if (ep.meeting_time) {
+      info.el.setAttribute("title", `${ep.meeting_time} — ${info.event.title}`);
+      return;
+    }
+    const tip = ep.broadcast_tooltip;
     if (tip) info.el.setAttribute("title", tip);
   }
 

@@ -43,6 +43,11 @@ class Event(models.Model):
     # announcements without a structured "Meeting Date and Time" field don't
     # appear in the Schedules calendar view.
     meeting_datetime = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Dividend ex-date, set on the laptop by services/sgx/dividend_detail.py
+    # and pushed to PA via /sync/. Drives the "Ex-Dividend Date" view on
+    # the Dividends calendar. dividend_amount / dividend_currency live in
+    # details_json (display-only).
+    ex_date = models.DateField(null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     sgx_announcement_url = models.URLField(blank=True)
     company_ir_url = models.URLField(blank=True)

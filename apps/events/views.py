@@ -27,7 +27,8 @@ VIEW_CATEGORY_KEYS = {key for key, _ in VIEW_CATEGORY}
 
 def _calendar_context(view_category: str, page_label: str,
                       event_types: list[str] | None = None,
-                      show_schedule_toggle: bool = False) -> dict:
+                      show_schedule_toggle: bool = False,
+                      schedule_toggle_label: str = "Meeting Schedules") -> dict:
     today = datetime.now(SGT).date()
     return {
         "view_category": view_category,
@@ -37,9 +38,11 @@ def _calendar_context(view_category: str, page_label: str,
         # Comma-separated event_type filter sent on /api/events/?event_type=...
         # Empty string means "no extra filter beyond view_category".
         "event_types": ",".join(event_types) if event_types else "",
-        # AGM/EGM is the only view today that supports the
-        # Announcements vs. Meeting Schedules segmented toggle.
+        # Per-view toggle wiring. AGM/EGM swaps between announcements and
+        # meeting schedules; Dividends swaps between announcements and
+        # ex-dividend dates. The right-hand button label is view-specific.
         "show_schedule_toggle": show_schedule_toggle,
+        "schedule_toggle_label": schedule_toggle_label,
     }
 
 
@@ -47,13 +50,16 @@ def _calendar_context(view_category: str, page_label: str,
 def calendar_agm_egm(request):
     return render(request, "calendar/agm_egm.html",
                   _calendar_context("AGM_EGM", "AGM / EGM",
-                                    show_schedule_toggle=True))
+                                    show_schedule_toggle=True,
+                                    schedule_toggle_label="Meeting Schedules"))
 
 
 @require_GET
 def calendar_dividends(request):
     return render(request, "calendar/dividends.html",
-                  _calendar_context("DIVIDEND", "Dividends"))
+                  _calendar_context("DIVIDEND", "Dividends",
+                                    show_schedule_toggle=True,
+                                    schedule_toggle_label="Ex-Dividend Date"))
 
 
 @require_GET
@@ -150,13 +156,21 @@ def api_events(request):
     if view not in VIEW_CATEGORY_KEYS:
         return HttpResponseBadRequest("invalid view")
     mode = request.GET.get("mode", "announcements")
-    schedule_mode = (mode == "schedule" and view == "AGM_EGM")
+    schedule_mode = (mode == "schedule" and view in ("AGM_EGM", "DIVIDEND"))
+    # AGM/EGM schedule uses meeting_datetime; Dividends schedule uses ex_date.
+    dividend_schedule = schedule_mode and view == "DIVIDEND"
 
     start = request.GET.get("start")
     end = request.GET.get("end")
     qs = Event.objects.filter(view_category=view).select_related("company")
     try:
-        if schedule_mode:
+        if dividend_schedule:
+            qs = qs.filter(ex_date__isnull=False)
+            if start:
+                qs = qs.filter(ex_date__gte=datetime.fromisoformat(start[:10]).date())
+            if end:
+                qs = qs.filter(ex_date__lt=datetime.fromisoformat(end[:10]).date())
+        elif schedule_mode:
             qs = qs.filter(meeting_datetime__isnull=False)
             if start:
                 qs = qs.filter(meeting_datetime__date__gte=datetime.fromisoformat(start[:10]).date())
@@ -181,15 +195,17 @@ def api_events(request):
     # chronological order. In schedule mode the meeting_datetime is the
     # primary sort key; otherwise the SGX broadcast event_datetime is.
     if schedule_mode:
-        # Dedup: a single AGM may be filed multiple times (Notice of AGM +
-        # follow-up announcements), each landing as its own Event row
-        # because uniqueness is (company, event_type, event_date), not
-        # meeting_datetime. Collapse by (company, event_type,
-        # meeting_datetime), keeping the most-recently-updated row.
+        # Dedup: a single AGM/dividend may be filed multiple times (Notice
+        # + follow-up announcements), each landing as its own Event row
+        # because uniqueness is (company, event_type, event_date), not the
+        # schedule key. Collapse by (company, event_type, schedule_key),
+        # keeping the most-recently-updated row.
         seen: set[tuple[int, str, object]] = set()
         deduped = []
-        for e in qs.order_by("meeting_datetime", "-updated_at"):
-            key = (e.company_id, e.event_type, e.meeting_datetime)
+        order_field = "ex_date" if dividend_schedule else "meeting_datetime"
+        for e in qs.order_by(order_field, "-updated_at"):
+            schedule_key = e.ex_date if dividend_schedule else e.meeting_datetime
+            key = (e.company_id, e.event_type, schedule_key)
             if key in seen:
                 continue
             seen.add(key)
@@ -208,7 +224,31 @@ def api_events(request):
         broadcast_tooltip = (e.event_datetime.astimezone(SGT)
                                 .strftime("Announcement Time: %d %b %Y, %H:%M SGT")
                              if e.event_datetime else "")
-        if schedule_mode and e.meeting_datetime is not None:
+        if dividend_schedule and e.ex_date is not None:
+            details = e.details_json or {}
+            currency = (details.get("dividend_currency") or "").strip()
+            amount = (details.get("dividend_amount") or "").strip()
+            rate_prefix = f"{currency} {amount} ".lstrip() if (currency or amount) else ""
+            tooltip = (f"Ex Date: {e.ex_date.isoformat()}"
+                       + (f" — {currency} {amount}" if currency or amount else "")
+                       + f" — {e.company.short_name} {e.title}")
+            payload.append({
+                "id": e.pk,
+                "title": f"{rate_prefix}{e.company.short_name} — {e.title}",
+                "start": e.ex_date.isoformat(),
+                "allDay": True,
+                "url": "",
+                "extendedProps": {
+                    "ticker": e.company.ticker,
+                    "event_type": e.event_type,
+                    "view_category": e.view_category,
+                    "detail_url": detail_url,
+                    "dividend_tooltip": tooltip,
+                    "broadcast_iso": broadcast_iso,
+                    "broadcast_tooltip": broadcast_tooltip,
+                },
+            })
+        elif schedule_mode and e.meeting_datetime is not None:
             sgt_dt = e.meeting_datetime.astimezone(SGT)
             payload.append({
                 "id": e.pk,
@@ -393,6 +433,14 @@ def sync_in(request):
                 return None
             event_dt = _parse_optional_iso(e.get("event_datetime"))
             meeting_dt = _parse_optional_iso(e.get("meeting_datetime"))
+            # ex_date is a plain ISO date (no time component).
+            ex_date_val = None
+            ex_raw = e.get("ex_date")
+            if isinstance(ex_raw, str) and ex_raw:
+                try:
+                    ex_date_val = datetime.fromisoformat(ex_raw).date()
+                except ValueError:
+                    ex_date_val = None
             seen_event_keys.add((company.id, event_type, event_date.isoformat()))
             _, created = Event.objects.update_or_create(
                 company=company,
@@ -402,6 +450,7 @@ def sync_in(request):
                     "view_category": e.get("view_category") or "OTHER",
                     "event_datetime": event_dt,
                     "meeting_datetime": meeting_dt,
+                    "ex_date": ex_date_val,
                     "title": e.get("title", ""),
                     "sgx_announcement_url": e.get("sgx_announcement_url", ""),
                     "company_ir_url": e.get("company_ir_url", ""),
