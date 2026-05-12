@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -15,6 +16,8 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
+
+from apps.prices.models import DailyBar
 
 from .models import VIEW_CATEGORY, Event
 from .window import SGT, three_months
@@ -460,6 +463,71 @@ def sync_in(request):
             events_added += int(created)
             events_updated += int(not created)
 
+        # --- OHLCV bars (optional in payload) -----------------------------
+        bars = payload.get("bars") or []
+        bars_added = bars_updated = bars_skipped = 0
+        bars_pruned = 0
+        price_ws = price_we = None
+        ps_raw = payload.get("price_window_start")
+        pe_raw = payload.get("price_window_end")
+        if isinstance(ps_raw, str) and isinstance(pe_raw, str):
+            try:
+                price_ws = datetime.fromisoformat(ps_raw).date()
+                price_we = datetime.fromisoformat(pe_raw).date()
+            except ValueError:
+                price_ws = price_we = None
+        seen_bar_keys: set[tuple[int, str]] = set()
+        if bars:
+            bar_tickers = {b.get("ticker") for b in bars if b.get("ticker")}
+            ticker_to_company_bars = {
+                c.ticker: c for c in Company.objects.filter(ticker__in=bar_tickers)
+            }
+            for b in bars:
+                company = ticker_to_company_bars.get(b.get("ticker"))
+                if company is None:
+                    bars_skipped += 1
+                    continue
+                try:
+                    bar_date = datetime.fromisoformat(b["date"]).date()
+                    open_v = Decimal(str(b["open"]))
+                    high_v = Decimal(str(b["high"]))
+                    low_v = Decimal(str(b["low"]))
+                    close_v = Decimal(str(b["close"]))
+                    volume_v = int(b["volume"])
+                except (KeyError, ValueError, TypeError, InvalidOperation):
+                    bars_skipped += 1
+                    continue
+                seen_bar_keys.add((company.id, bar_date.isoformat()))
+                _, created = DailyBar.objects.update_or_create(
+                    company=company,
+                    date=bar_date,
+                    defaults={
+                        "open": open_v,
+                        "high": high_v,
+                        "low": low_v,
+                        "close": close_v,
+                        "volume": volume_v,
+                    },
+                )
+                bars_added += int(created)
+                bars_updated += int(not created)
+
+            # Prune bars inside the price window not present in the payload.
+            if price_ws and price_we:
+                in_window = DailyBar.objects.filter(
+                    date__gte=price_ws, date__lte=price_we
+                )
+                to_delete_ids = []
+                for bid, cid, bdate in in_window.values_list(
+                    "id", "company_id", "date"
+                ):
+                    if (cid, bdate.isoformat()) not in seen_bar_keys:
+                        to_delete_ids.append(bid)
+                if to_delete_ids:
+                    bars_pruned, _ = DailyBar.objects.filter(
+                        id__in=to_delete_ids
+                    ).delete()
+
         # Prune events inside the window that didn't appear in the payload.
         in_window = Event.objects.filter(event_date__gte=ws, event_date__lte=we)
         to_delete_ids = []
@@ -473,17 +541,25 @@ def sync_in(request):
             events_pruned, _ = Event.objects.filter(id__in=to_delete_ids).delete()
 
     logger.info(
-        "sync_in: window=%s..%s companies +%d ~%d, events +%d ~%d -%d skipped %d",
+        "sync_in: window=%s..%s companies +%d ~%d, events +%d ~%d -%d skipped %d, "
+        "bars +%d ~%d -%d skipped %d",
         ws, we, companies_added, companies_updated,
         events_added, events_updated, events_pruned, events_skipped,
+        bars_added, bars_updated, bars_pruned, bars_skipped,
     )
     return JsonResponse({
         "ok": True,
         "window": [ws.isoformat(), we.isoformat()],
+        "price_window": [price_ws.isoformat() if price_ws else None,
+                         price_we.isoformat() if price_we else None],
         "companies_added": companies_added,
         "companies_updated": companies_updated,
         "events_added": events_added,
         "events_updated": events_updated,
         "events_pruned": events_pruned,
         "events_skipped": events_skipped,
+        "bars_added": bars_added,
+        "bars_updated": bars_updated,
+        "bars_pruned": bars_pruned,
+        "bars_skipped": bars_skipped,
     })
