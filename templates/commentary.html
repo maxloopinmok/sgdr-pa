@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Stocks Commentary — SG Dividends Reports{% endblock %}
+
+{% block content %}
+<section class="space-y-2">
+  <div class="flex items-baseline gap-3">
+    <h1 class="text-2xl font-semibold">Stocks Commentary</h1>
+    <span class="text-xs text-slate-500">latest post · refreshed every ~15 min</span>
+    <a href="{{ blog_url }}" target="_blank" rel="noopener"
+       class="ml-auto rounded border px-2 py-1 text-xs hover:bg-slate-100">All posts ↗</a>
+  </div>
+</section>
+
+{% if post %}
+<article class="mt-6 bg-white rounded shadow-sm p-6">
+  <header class="mb-4 space-y-1">
+    <h2 class="text-xl font-semibold leading-tight">
+      {% if post.link %}
+      <a href="{{ post.link }}" target="_blank" rel="noopener"
+         class="hover:underline">{{ post.title }}</a>
+      {% else %}
+      {{ post.title }}
+      {% endif %}
+    </h2>
+    {% if post.published %}
+    <p class="text-xs text-slate-500">
+      Published {{ post.published|date:"j M Y" }}
+    </p>
+    {% endif %}
+  </header>
+  {# Trusted content — this is Max's own blog. Render the embedded HTML
+     directly so images, links, lists, and formatting survive. #}
+  <div class="commentary-body max-w-none text-slate-800 leading-relaxed space-y-3">
+    {{ post.content_html|safe }}
+  </div>
+  {% if post.link %}
+  <footer class="mt-6 pt-4 border-t text-sm text-slate-500">
+    Originally posted at
+    <a href="{{ post.link }}" target="_blank" rel="noopener"
+       class="text-slate-700 hover:underline">somethingusefulforinvestors.blogspot.com</a>.
+  </footer>
+  {% endif %}
+</article>
+{% else %}
+<article class="mt-6 bg-white rounded shadow-sm p-6">
+  <p class="text-slate-700">
+    Couldn't load the latest post just now. Please visit the blog directly:
+    <a href="{{ blog_url }}" target="_blank" rel="noopener"
+       class="text-slate-900 underline">{{ blog_url }}</a>
+  </p>
+</article>
+{% endif %}
+
+<style>
+  /* Blogger's embedded HTML uses raw <p>, <img>, <ul>, etc. Tailwind's
+     preflight strips default margins from these, so give the commentary
+     body a light reset for readability without pulling in @tailwindcss/typography. */
+  .commentary-body p { margin-bottom: 0.75rem; }
+  .commentary-body p:last-child { margin-bottom: 0; }
+  .commentary-body img { max-width: 100%; height: auto; margin: 0.75rem 0; }
+  .commentary-body a { color: #1e40af; text-decoration: underline; }
+  .commentary-body a:hover { color: #1e3a8a; }
+  .commentary-body ul, .commentary-body ol { margin: 0.5rem 0 0.75rem 1.5rem; }
+  .commentary-body ul { list-style: disc; }
+  .commentary-body ol { list-style: decimal; }
+  .commentary-body li { margin-bottom: 0.25rem; }
+  .commentary-body h1, .commentary-body h2, .commentary-body h3,
+  .commentary-body h4 { font-weight: 600; margin: 1rem 0 0.5rem; }
+  .commentary-body h2 { font-size: 1.25rem; }
+  .commentary-body h3 { font-size: 1.1rem; }
+  .commentary-body blockquote {
+    border-left: 3px solid #cbd5e1; padding-left: 0.75rem;
+    color: #475569; margin: 0.75rem 0;
+  }
+  .commentary-body pre, .commentary-body code {
+    background: #f1f5f9; border-radius: 4px; padding: 0.1rem 0.3rem;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+  }
+  .commentary-body pre { padding: 0.75rem; overflow-x: auto; }
+  .commentary-body iframe { max-width: 100%; }
+</style>
+{% endblock %}

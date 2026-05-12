@@ -4,6 +4,7 @@ from . import views
 
 urlpatterns = [
     path("", views.landing, name="landing"),
+    path("commentary/", views.commentary, name="commentary"),
     path("about/", views.about, name="about"),
     path("legal/disclaimer/", views.disclaimer, name="disclaimer"),
     path("healthz", views.healthz, name="healthz"),
