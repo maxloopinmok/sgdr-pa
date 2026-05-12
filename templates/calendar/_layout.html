@@ -160,6 +160,13 @@
       // are allDay, so they all share a 00:00 start and fall through to the
       // broadcast_iso tiebreaker (earliest broadcast at top).
       eventOrder: "start,extendedProps.broadcast_iso,title",
+      // Render timed events as "2:30 PM" instead of FullCalendar's default
+      // "2:30p" (which drops the trailing 'm' to save horizontal space).
+      eventTimeFormat: {
+        hour: "numeric",
+        minute: "2-digit",
+        meridiem: "short",
+      },
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
@@ -211,6 +218,13 @@
       // are allDay, so they all share a 00:00 start and fall through to the
       // broadcast_iso tiebreaker (earliest broadcast at top).
       eventOrder: "start,extendedProps.broadcast_iso,title",
+      // Render timed events as "2:30 PM" instead of FullCalendar's default
+      // "2:30p" (which drops the trailing 'm' to save horizontal space).
+      eventTimeFormat: {
+        hour: "numeric",
+        minute: "2-digit",
+        meridiem: "short",
+      },
       events: function (info, success, failure) {
         fetch(feedUrl(info.startStr.slice(0,10), info.endStr.slice(0,10)))
           .then(r => r.json()).then(success).catch(failure);
