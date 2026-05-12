@@ -181,7 +181,20 @@ def api_events(request):
     # chronological order. In schedule mode the meeting_datetime is the
     # primary sort key; otherwise the SGX broadcast event_datetime is.
     if schedule_mode:
-        qs = qs.order_by("meeting_datetime", "company__ticker")
+        # Dedup: a single AGM may be filed multiple times (Notice of AGM +
+        # follow-up announcements), each landing as its own Event row
+        # because uniqueness is (company, event_type, event_date), not
+        # meeting_datetime. Collapse by (company, event_type,
+        # meeting_datetime), keeping the most-recently-updated row.
+        seen: set[tuple[int, str, object]] = set()
+        deduped = []
+        for e in qs.order_by("meeting_datetime", "-updated_at"):
+            key = (e.company_id, e.event_type, e.meeting_datetime)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(e)
+        qs = deduped
     else:
         qs = qs.order_by("event_date", "event_datetime", "company__ticker")
     payload = []
@@ -197,10 +210,13 @@ def api_events(request):
                              if e.event_datetime else "")
         if schedule_mode and e.meeting_datetime is not None:
             sgt_dt = e.meeting_datetime.astimezone(SGT)
-            time_label = sgt_dt.strftime("%H:%M")
             payload.append({
                 "id": e.pk,
-                "title": f"{time_label} {e.company.short_name} — {e.title}",
+                # No time prefix in the title — FullCalendar renders the
+                # time natively for timed events, and the tooltip
+                # carries the full SGT datetime. Two extra prefixes
+                # were causing visible "09:30 ... 09:30 ..." duplication.
+                "title": f"{e.company.short_name} — {e.title}",
                 "start": sgt_dt.isoformat(),
                 "allDay": False,
                 "url": "",
