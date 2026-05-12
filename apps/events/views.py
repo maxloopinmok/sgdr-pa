@@ -59,7 +59,7 @@ def calendar_dividends(request):
     return render(request, "calendar/dividends.html",
                   _calendar_context("DIVIDEND", "Dividends",
                                     show_schedule_toggle=True,
-                                    schedule_toggle_label="Ex-Dividend Date"))
+                                    schedule_toggle_label="Ex-Dividend Date Schedule"))
 
 
 @require_GET
