@@ -9,6 +9,15 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <style>
+    /* Light-blue calendar event tiles with dark text for readability. */
+    .fc {
+      --fc-event-bg-color: #bfdbfe;
+      --fc-event-border-color: #93c5fd;
+      --fc-event-text-color: #1e3a8a;
+    }
+    .fc-event, .fc-event-main, .fc-event-title, .fc-event-time { color: #1e3a8a; }
+  </style>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="{% static 'calendar/breakpoints.js' %}"></script>
   {% if GOATCOUNTER_SITE_CODE %}
