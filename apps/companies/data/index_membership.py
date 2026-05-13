@@ -1,8 +1,8 @@
 """Which curated company belongs to which SGX index.
 
-Anchored on the Mar 2026 SGX Monthly Statistics Report
-(``specs-chat/SGX Monthly Statistics Report Update (For the month of Mar 2026)_FA.pdf``,
-pages 7-11).
+Anchored on the Apr 2026 SGX Monthly Statistics Report
+(``specs-chat/SGX Monthly Statistics Report Update (For the month of Apr 2026)_FA.pdf``,
+pages 8-12). Constituents unchanged from Mar 2026.
 
 Members are listed by ``sgx_code`` so the lookup stays stable even if SGX's
 display name varies. ``mainboard_universe.py`` is the source of truth for the
@@ -13,7 +13,7 @@ Anything in the curated universe not in either set falls into "Other Companies".
 from __future__ import annotations
 
 
-# 30 STI Constituent Stocks — Mar 2026 PDF page 7-8.
+# 30 STI Constituent Stocks — Apr 2026 PDF pages 8-9.
 STI_CODES: frozenset[str] = frozenset({
     "D05",   # DBS Group Holdings Ltd
     "O39",   # Oversea-Chinese Banking Corporation Limited
@@ -48,7 +48,7 @@ STI_CODES: frozenset[str] = frozenset({
 })
 
 
-# 50 iEdge Singapore Next 50 — Mar 2026 PDF pages 10-11.
+# 50 iEdge Singapore Next 50 — Apr 2026 PDF pages 11-12.
 NEXT50_CODES: frozenset[str] = frozenset({
     "O5RU",  # AIMS APAC REIT
     "F9D",   # Boustead Singapore
