@@ -384,7 +384,11 @@ def sync_in(request):
 
     companies_added = companies_updated = 0
     events_added = events_updated = events_skipped = 0
-    seen_event_keys: set[tuple[int, str, str]] = set()
+    # We track event identity by primary key now: OTHER rows can have several
+    # legitimate filings per (company, event_type, event_date), distinguished
+    # only by sgx_announcement_id, so the old (company, type, date) tuple key
+    # would over-prune.
+    seen_event_pks: set[int] = set()
 
     with transaction.atomic():
         for c in companies:
@@ -445,22 +449,41 @@ def sync_in(request):
                     ex_date_val = datetime.fromisoformat(ex_raw).date()
                 except ValueError:
                     ex_date_val = None
-            seen_event_keys.add((company.id, event_type, event_date.isoformat()))
-            _, created = Event.objects.update_or_create(
-                company=company,
-                event_type=event_type,
-                event_date=event_date,
-                defaults={
-                    "view_category": e.get("view_category") or "OTHER",
-                    "event_datetime": event_dt,
-                    "meeting_datetime": meeting_dt,
-                    "ex_date": ex_date_val,
-                    "title": e.get("title", ""),
-                    "sgx_announcement_url": e.get("sgx_announcement_url", ""),
-                    "company_ir_url": e.get("company_ir_url", ""),
-                    "details_json": e.get("details_json") or {},
-                },
-            )
+            view_category = e.get("view_category") or "OTHER"
+            announcement_id = e.get("sgx_announcement_id") or ""
+            common_defaults = {
+                "view_category": view_category,
+                "event_datetime": event_dt,
+                "meeting_datetime": meeting_dt,
+                "ex_date": ex_date_val,
+                "title": e.get("title", ""),
+                "sgx_announcement_url": e.get("sgx_announcement_url", ""),
+                "sgx_announcement_id": announcement_id,
+                "company_ir_url": e.get("company_ir_url", ""),
+                "details_json": e.get("details_json") or {},
+            }
+            # Match laptop's hybrid upsert: OTHER rows are keyed by
+            # (company, sgx_announcement_id); everything else by
+            # (company, event_type, event_date).
+            if view_category == "OTHER" and announcement_id:
+                obj, created = Event.objects.update_or_create(
+                    company=company,
+                    view_category="OTHER",
+                    sgx_announcement_id=announcement_id,
+                    defaults={
+                        **common_defaults,
+                        "event_type": event_type,
+                        "event_date": event_date,
+                    },
+                )
+            else:
+                obj, created = Event.objects.update_or_create(
+                    company=company,
+                    event_type=event_type,
+                    event_date=event_date,
+                    defaults=common_defaults,
+                )
+            seen_event_pks.add(obj.pk)
             events_added += int(created)
             events_updated += int(not created)
 
@@ -530,13 +553,13 @@ def sync_in(request):
                     ).delete()
 
         # Prune events inside the window that didn't appear in the payload.
-        in_window = Event.objects.filter(event_date__gte=ws, event_date__lte=we)
-        to_delete_ids = []
-        for eid, cid, etype, edate in in_window.values_list(
-            "id", "company_id", "event_type", "event_date"
-        ):
-            if (cid, etype, edate.isoformat()) not in seen_event_keys:
-                to_delete_ids.append(eid)
+        # Identity is by primary key — OTHER rows can have multiple legitimate
+        # entries per (company, event_type, event_date), so a tuple key would
+        # over-prune.
+        in_window_pks = Event.objects.filter(
+            event_date__gte=ws, event_date__lte=we
+        ).values_list("id", flat=True)
+        to_delete_ids = [pk for pk in in_window_pks if pk not in seen_event_pks]
         events_pruned = 0
         if to_delete_ids:
             events_pruned, _ = Event.objects.filter(id__in=to_delete_ids).delete()

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 EVENT_TYPES = [
@@ -50,13 +51,28 @@ class Event(models.Model):
     ex_date = models.DateField(null=True, blank=True, db_index=True)
     title = models.CharField(max_length=255)
     sgx_announcement_url = models.URLField(blank=True)
+    # SGX filing id, mirrored from the laptop. Used as the uniqueness key
+    # for OTHER-bucket rows so multiple miscellaneous filings on the same
+    # day don't collide. Hidden from all templates by design.
+    sgx_announcement_id = models.CharField(max_length=64, blank=True, db_index=True)
     company_ir_url = models.URLField(blank=True)
     details_json = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = [("company", "event_type", "event_date")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "event_type", "event_date"],
+                condition=~Q(view_category="OTHER"),
+                name="event_uniq_per_type_date_nonother",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "sgx_announcement_id"],
+                condition=Q(view_category="OTHER") & ~Q(sgx_announcement_id=""),
+                name="event_uniq_other_by_announcement_id",
+            ),
+        ]
         indexes = [models.Index(fields=["view_category", "event_date"])]
         ordering = ["event_date", "company__ticker"]
 
