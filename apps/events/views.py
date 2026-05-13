@@ -72,24 +72,13 @@ def calendar_reports(request):
 
 
 @require_GET
-def calendar_acq_disposal(request):
-    """4-month grid of Acquisitions / Disposals events.
-
-    These live under view_category=OTHER (since their detail page is the SGX
-    announcement itself), and we narrow further by event_type=OTH_ACQ_DISPOSAL.
-    """
-    return render(request, "calendar/acquisitions_disposals.html",
-                  _calendar_context("OTHER", "Acquisitions / Disposals",
-                                    event_types=["OTH_ACQ_DISPOSAL"]))
-
-
-@require_GET
 def calendar_other(request):
     """Other Announcements list — past month + current month, in scope.
 
-    Excludes event_types that have their own dedicated calendar page
-    (Acquisitions / Disposals; AGM/EGM, Dividends, Reports already live on
-    other view_categories).
+    AGM/EGM, Dividends, and Reports live on other view_categories, so they
+    don't appear here. Acquisitions / Disposals are now included alongside
+    every other OTHER-bucket announcement (the dedicated A/D calendar was
+    retired in favour of one chronological list).
 
     Supports a ``q=`` filter (case-insensitive ticker / short_name / name match)
     so the user can narrow to one company. HTMX requests get just the rows
@@ -107,8 +96,6 @@ def calendar_other(request):
                .filter(view_category="OTHER",
                        event_date__gte=window_start,
                        event_date__lte=today)
-               # Acquisitions / Disposals have a dedicated calendar page.
-               .exclude(event_type="OTH_ACQ_DISPOSAL")
                .select_related("company")
                # Latest first. event_datetime is the SGX broadcast time and
                # gives within-day ordering; event_date is the tiebreaker for

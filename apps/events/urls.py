@@ -5,7 +5,6 @@ from . import views
 calendar_patterns = [
     path("calendar/agm-egm/", views.calendar_agm_egm, name="calendar_agm_egm"),
     path("calendar/dividends/", views.calendar_dividends, name="calendar_dividends"),
-    path("calendar/acquisitions-disposals/", views.calendar_acq_disposal, name="calendar_acq_disposal"),
     path("calendar/reports/", views.calendar_reports, name="calendar_reports"),
     path("calendar/other-announcements/", views.calendar_other, name="calendar_other"),
 ]

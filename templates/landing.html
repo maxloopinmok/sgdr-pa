@@ -5,24 +5,18 @@
 <section class="space-y-3">
   <h1 class="text-3xl font-semibold">SG Dividends Reports</h1>
   <p class="text-slate-600 max-w-2xl">
-    A calendar of corporate announcements for SGX Mainboard-listed companies.
-    Pick a view below — the rolling window covers the previous month, the current month,
-    and the next month.
+    One to three months calendars or histories of corporate announcements and stock prices for SGX Mainboard-listed companies. Pick a view below.
   </p>
 </section>
 
 <section class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
   <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'calendar_agm_egm' %}">
     <h2 class="text-lg font-semibold">AGM / EGM</h2>
-    <p class="text-sm text-slate-600">AGM and EGM meetings announcements.</p>
+    <p class="text-sm text-slate-600">AGM and EGM meetings announcements and schedules.</p>
   </a>
   <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'calendar_dividends' %}">
     <h2 class="text-lg font-semibold">Dividends</h2>
-    <p class="text-sm text-slate-600">Dividend (ex-date) announcements.</p>
-  </a>
-  <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'calendar_acq_disposal' %}">
-    <h2 class="text-lg font-semibold">Acquisitions / Disposals</h2>
-    <p class="text-sm text-slate-600">Acquisitions and disposals announcements.</p>
+    <p class="text-sm text-slate-600">Dividend announcements and ex-date schedules.</p>
   </a>
   <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'calendar_reports' %}">
     <h2 class="text-lg font-semibold">Reports</h2>
@@ -34,7 +28,7 @@
   </a>
   <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'companies_list' %}">
     <h2 class="text-lg font-semibold">Companies List</h2>
-    <p class="text-sm text-slate-600">Tracked SGX Mainboard companies — STI Constituents, iEdge Singapore Next 50, and other tracked names.</p>
+    <p class="text-sm text-slate-600">Tracked SGX Mainboard companies — STI ETF and Constituents, iEdge Singapore Next 50, and other tracked names, including stock price histories.</p>
   </a>
   <a class="rounded-lg border bg-white p-6 hover:shadow" href="{% url 'commentary' %}">
     <h2 class="text-lg font-semibold">Stocks Commentary</h2>
