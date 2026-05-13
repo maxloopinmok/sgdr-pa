@@ -131,6 +131,7 @@ def calendar_other(request):
         "short_name": e.company.short_name,
         "title": e.title,
         "event_type": e.event_type,
+        "sgx_announcement_url": e.sgx_announcement_url,
     } for e in rows_qs]
 
     is_htmx = request.headers.get("HX-Request") == "true"

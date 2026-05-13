@@ -1,15 +1,22 @@
 {% for row in rows %}
-<button type="button"
-        class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-50"
-        {% if row.event_datetime %}title="Announcement Time: {{ row.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}
-        hx-get="{% url 'event_detail' row.id %}"
-        hx-target="#detail-panel"
-        hx-swap="innerHTML">
+{% if row.sgx_announcement_url %}
+<a href="{{ row.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+   class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-50"
+   {% if row.event_datetime %}title="Announcement Time: {{ row.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}>
   <time class="w-24 text-slate-500">{{ row.event_date|date:"D, d M Y" }}</time>
   <span class="w-40 truncate text-slate-600">{{ row.short_name }}</span>
-  <span class="flex-1 truncate">{{ row.title }}</span>
+  <span class="flex-1 truncate text-sky-700 hover:underline">{{ row.title }}</span>
   <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">SGX</span>
-</button>
+</a>
+{% else %}
+<div class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm"
+     {% if row.event_datetime %}title="Announcement Time: {{ row.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}>
+  <time class="w-24 text-slate-500">{{ row.event_date|date:"D, d M Y" }}</time>
+  <span class="w-40 truncate text-slate-600">{{ row.short_name }}</span>
+  <span class="flex-1 truncate text-slate-500">{{ row.title }} <span class="text-xs italic">(no SGX link)</span></span>
+  <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">—</span>
+</div>
+{% endif %}
 {% empty %}
 <p class="px-4 py-8 text-center text-sm text-slate-500">
   {% if query %}No matches for &ldquo;{{ query }}&rdquo; in this window.
