@@ -60,6 +60,35 @@ def companies_list(request):
     })
 
 
+def _bar_highlight_flags(bars_by_date: dict) -> dict:
+    """Compute (open_hi, close_hi) booleans for each bar.
+
+    Rules — both prices on a bar can be flagged yellow:
+        * open_hi  = close > open (intraday up) OR previous trading day's
+                     close < this open (gap up overnight from yesterday)
+        * close_hi = close > open (intraday up) OR next trading day's
+                     open > this close (gap up overnight into tomorrow)
+
+    "Previous" / "next" mean adjacent TRADING days inside the price window —
+    weekends and non-trading days are skipped because they don't appear in
+    bars_by_date.
+    """
+    sorted_dates = sorted(bars_by_date.keys())
+    flags: dict = {}
+    for i, d in enumerate(sorted_dates):
+        b = bars_by_date[d]
+        intraday_up = b.close > b.open
+        gap_up_from_prev = (i > 0
+                            and b.open > bars_by_date[sorted_dates[i - 1]].close)
+        gap_up_to_next = (i + 1 < len(sorted_dates)
+                          and bars_by_date[sorted_dates[i + 1]].open > b.close)
+        flags[d] = {
+            "open_hi": intraday_up or gap_up_from_prev,
+            "close_hi": intraday_up or gap_up_to_next,
+        }
+    return flags
+
+
 def _build_history_rows(company: Company, price_start: date, price_end: date) -> list[dict]:
     """Merge OHLCV bars and pre-/post-market events into one descending list.
 
@@ -74,6 +103,7 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
     bars = {b.date: b for b in DailyBar.objects.filter(
         company=company, date__gte=price_start, date__lte=price_end
     )}
+    highlight = _bar_highlight_flags(bars)
 
     # Pre-bucket events by (date, slot) where slot is "pre" or "post".
     events = (company.events
@@ -100,7 +130,11 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
 
         bar = bars.get(cur)
         if bar is not None:
-            rows.append({"kind": "bar", "date": cur, "bar": bar})
+            hi = highlight.get(cur, {"open_hi": False, "close_hi": False})
+            rows.append({
+                "kind": "bar", "date": cur, "bar": bar,
+                "open_hi": hi["open_hi"], "close_hi": hi["close_hi"],
+            })
         elif cur.weekday() >= 5:
             rows.append({"kind": "no_trade", "date": cur, "reason": "Weekend"})
         else:
