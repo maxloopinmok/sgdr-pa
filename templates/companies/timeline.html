@@ -11,10 +11,13 @@
 </section>
 
 <section class="mt-6">
-  <h2 class="text-sm font-semibold text-slate-700 mb-2">
+  <h2 class="text-sm font-semibold text-slate-700 mb-1">
     Price &amp; Event History
     <span class="ml-2 font-normal text-slate-500">{{ price_start|date:"d M Y" }} — {{ price_end|date:"d M Y" }}</span>
   </h2>
+  <p class="text-xs text-slate-600 mb-2">
+    The <span class="bg-yellow-200 rounded px-1">yellow highlighting</span> indicates an upward trend in prices.
+  </p>
   <div class="bg-white rounded shadow-sm divide-y overflow-x-auto">
     <div class="hidden sm:flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-wide text-slate-400 bg-slate-50">
       <span class="w-24">Date</span>
