@@ -184,12 +184,10 @@
 
   function mountAll() {
     document.querySelectorAll(".month-grid").forEach(mountMonthCalendar);
-    // Scroll to the first month — the past month, which usually carries the
-    // densest event count for users opening the page mid-cycle.
-    const first = document.querySelector(".month-grid");
-    if (first) {
-      first.closest("article").scrollIntoView({ block: "start" });
-    }
+    // Land at the top of the page so the user sees the page header and
+    // view-toggle controls first. (Previously auto-scrolled to the first
+    // month, which jumped past the header.)
+    window.scrollTo(0, 0);
   }
 
   async function phoneDefault() {
