@@ -43,6 +43,33 @@
           <span class="w-20 text-right font-semibold {% if row.close_hi %}bg-yellow-200 rounded px-1{% endif %}">{{ row.bar.close }}</span>
           <span class="w-28 text-right text-slate-600">{{ row.bar.volume|intcomma }}</span>
         </div>
+      {% elif row.kind == "ex_div" %}
+        {% with e=row.event %}
+          {% if e.sgx_announcement_url %}
+            <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+               title="Ex-Dividend Date: {{ e.ex_date|date:"d M Y" }}{% if row.currency or row.amount %} — {{ row.currency }} {{ row.amount }}{% endif %}"
+               class="flex items-center gap-3 px-4 py-2 text-sm bg-amber-50 hover:bg-amber-100 transition-colors">
+              <time class="w-24 text-slate-500">Ex {{ e.ex_date|date:"d M Y" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                Ex-Dividend Date
+              </span>
+              <span class="flex-1 truncate text-sky-700 hover:underline">
+                {% if row.currency or row.amount %}{{ row.currency }} {{ row.amount }} — {% endif %}{{ e.title }}
+              </span>
+            </a>
+          {% else %}
+            <div class="flex items-center gap-3 px-4 py-2 text-sm bg-amber-50"
+                 title="Ex-Dividend Date: {{ e.ex_date|date:"d M Y" }}{% if row.currency or row.amount %} — {{ row.currency }} {{ row.amount }}{% endif %}">
+              <time class="w-24 text-slate-500">Ex {{ e.ex_date|date:"d M Y" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                Ex-Dividend Date
+              </span>
+              <span class="flex-1 truncate">
+                {% if row.currency or row.amount %}{{ row.currency }} {{ row.amount }} — {% endif %}{{ e.title }}
+              </span>
+            </div>
+          {% endif %}
+        {% endwith %}
       {% elif row.kind == "no_trade" %}
         <div class="flex items-center gap-3 px-4 py-2 text-sm text-slate-400 italic">
           <time class="w-24 font-sans not-italic">{{ row.date|date:"D, d M Y" }}</time>

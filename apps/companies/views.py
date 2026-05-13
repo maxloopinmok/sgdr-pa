@@ -108,7 +108,7 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
     )}
     highlight = _bar_highlight_flags(bars)
 
-    # Pre-bucket events by (date, slot) where slot is "pre" or "post".
+    # Pre-bucket announcement events by (date, slot) where slot is "pre" or "post".
     events = (company.events
               .filter(event_date__gte=price_start, event_date__lte=price_end,
                       event_datetime__isnull=False)
@@ -124,12 +124,34 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
             post.setdefault(d, []).append(e)
         # else: intraday — skip per spec.
 
+    # Ex-dividend schedule markers, bucketed by ex_date. These render
+    # immediately above (just before, in reading order) the bar of the
+    # ex-date because the price adjustment is applied at market open.
+    ex_div_by_date: dict[date, list] = {}
+    for de in company.events.filter(
+        view_category="DIVIDEND",
+        ex_date__isnull=False,
+        ex_date__gte=price_start, ex_date__lte=price_end,
+    ):
+        ex_div_by_date.setdefault(de.ex_date, []).append(de)
+
     rows: list[dict] = []
     cur = price_end
     while cur >= price_start:
         # Post-close events for `cur` (latest first within the bucket).
         for e in sorted(post.get(cur, []), key=lambda x: x.event_datetime, reverse=True):
             rows.append({"kind": "event", "event": e})
+
+        # Ex-dividend schedule rows for `cur` — sit directly above the bar,
+        # below any post-close announcement events on the same date.
+        for de in ex_div_by_date.get(cur, []):
+            details = de.details_json or {}
+            rows.append({
+                "kind": "ex_div",
+                "event": de,
+                "amount": (details.get("dividend_amount") or "").strip(),
+                "currency": (details.get("dividend_currency") or "").strip(),
+            })
 
         bar = bars.get(cur)
         if bar is not None:
