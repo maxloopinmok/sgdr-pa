@@ -73,49 +73,25 @@
   <h2 class="text-sm font-semibold text-slate-700 mb-2">Announcement Events</h2>
   <div class="bg-white rounded shadow-sm divide-y">
     {% for e in events %}
-      {% if e.event_datetime %}
-        {% if e.sgx_announcement_url %}
-          <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
-             title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT"
-             class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50 transition-colors">
-            <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
-            <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-              {{ e.get_event_type_display }}
-            </span>
-            <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
-          </a>
-        {% else %}
-          <div class="flex items-center gap-3 px-4 py-3 text-sm"
-               title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT">
-            <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
-            <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-              {{ e.get_event_type_display }}
-            </span>
-            <span class="flex-1 truncate">{{ e.title }}</span>
-          </div>
-        {% endif %}
+      {% if e.sgx_announcement_url %}
+        <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+           title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT"
+           class="flex items-center gap-3 px-4 py-3 text-sm hover:bg-slate-50 transition-colors">
+          <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
+          <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+            {{ e.get_event_type_display }}
+          </span>
+          <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
+        </a>
       {% else %}
-        {# event_datetime is NULL — highlight in yellow so the user can audit. #}
-        {% if e.sgx_announcement_url %}
-          <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
-             title="Missing announcement datetime"
-             class="flex items-center gap-3 px-4 py-3 text-sm bg-yellow-100 hover:bg-yellow-200 transition-colors">
-            <time class="w-24 text-slate-700">{{ e.event_date|date:"D, d M Y" }}</time>
-            <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
-              {{ e.get_event_type_display }}
-            </span>
-            <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
-          </a>
-        {% else %}
-          <div class="flex items-center gap-3 px-4 py-3 text-sm bg-yellow-100"
-               title="Missing announcement datetime">
-            <time class="w-24 text-slate-700">{{ e.event_date|date:"D, d M Y" }}</time>
-            <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-600">
-              {{ e.get_event_type_display }}
-            </span>
-            <span class="flex-1 truncate">{{ e.title }}</span>
-          </div>
-        {% endif %}
+        <div class="flex items-center gap-3 px-4 py-3 text-sm"
+             title="Announcement Time: {{ e.event_datetime|date:"d M Y, H:i" }} SGT">
+          <time class="w-24 text-slate-500">{{ e.event_date|date:"D, d M Y" }}</time>
+          <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+            {{ e.get_event_type_display }}
+          </span>
+          <span class="flex-1 truncate">{{ e.title }}</span>
+        </div>
       {% endif %}
     {% empty %}
       <p class="px-4 py-8 text-center text-sm text-slate-500">No events in the current window.</p>

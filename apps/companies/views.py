@@ -130,10 +130,14 @@ def company_timeline(request, ticker: str):
     end_exclusive = datetime(end_year, end_month, 1).date()
 
     events = (company.events
-              .filter(event_date__gte=start, event_date__lt=end_exclusive)
-              # Latest first; event_datetime gives within-day ordering, event_date
-              # is the fallback for rows missing a datetime.
-              .order_by("-event_datetime", "-event_date"))
+              .filter(event_date__gte=start, event_date__lt=end_exclusive,
+                      # Schedule-only / null-datetime rows aren't real
+                      # announcements — they were highlighted yellow during an
+                      # audit, found to be junk (no SGX URL), and are now
+                      # hidden by default. The Dividends / AGM schedule views
+                      # render their own data separately.
+                      event_datetime__isnull=False)
+              .order_by("-event_datetime"))
 
     # Upper history list — strict 2-calendar-month window (prev + current).
     price_start, price_end = two_months()
