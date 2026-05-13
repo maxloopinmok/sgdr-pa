@@ -103,8 +103,18 @@ NEXT50_CODES: frozenset[str] = frozenset({
 })
 
 
+# Index-tracker ETFs surfaced in their own section above STI Constituents on
+# the Companies List page. Treated as Mainboard companies for OHLCV fetching
+# and sync, but excluded from the regular STI / Next 50 / Others grouping.
+ETF_CODES: frozenset[str] = frozenset({
+    "ES3",   # State Street SPDR Straits Times Index ETF
+})
+
+
 def membership_label(sgx_code: str) -> str:
-    """Return 'STI', 'NEXT_50', or 'OTHER' for the given sgx_code."""
+    """Return 'ETF', 'STI', 'NEXT_50', or 'OTHER' for the given sgx_code."""
+    if sgx_code in ETF_CODES:
+        return "ETF"
     if sgx_code in STI_CODES:
         return "STI"
     if sgx_code in NEXT50_CODES:

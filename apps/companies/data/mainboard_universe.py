@@ -16,6 +16,10 @@ Edit this file freely to adjust the universe.
 # (sgx_code, name, short_name, sector)
 MAINBOARD_COMPANIES: list[tuple[str, str, str, str]] = [
 
+    # --- Index ETFs (rendered as their own section above STI Constituents) ---
+    ("ES3", "STATE STREET SPDR STRAITS TIMES INDEX ETF",
+     "STI ETF", "Index ETF"),
+
     # --- Banks & Financial Services (~8) ---
     ("D05", "DBS GROUP HOLDINGS LTD", "DBS", "Banks & Financial Services"),
     ("O39", "OVERSEA-CHINESE BANKING CORPORATION LIMITED", "OCBC", "Banks & Financial Services"),

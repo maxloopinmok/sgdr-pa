@@ -6,7 +6,7 @@ from django.views.decorators.http import require_GET
 from apps.events.window import SGT, three_months, two_months
 from apps.prices.models import DailyBar
 
-from .data.index_membership import NEXT50_CODES, STI_CODES
+from .data.index_membership import ETF_CODES, NEXT50_CODES, STI_CODES
 from .models import Company
 
 
@@ -30,9 +30,11 @@ def companies_list(request):
           .filter(listing_board=Company.LISTING_BOARD_MAINBOARD)
           .order_by("name"))
 
-    sti, next50, others = [], [], []
+    etfs, sti, next50, others = [], [], [], []
     for c in qs:
-        if c.sgx_code in STI_CODES:
+        if c.sgx_code in ETF_CODES:
+            etfs.append(c)
+        elif c.sgx_code in STI_CODES:
             sti.append(c)
         elif c.sgx_code in NEXT50_CODES:
             next50.append(c)
@@ -40,6 +42,7 @@ def companies_list(request):
             others.append(c)
 
     sections = [
+        {"label": "Index ETFs", "companies": etfs, "count": len(etfs)},
         {"label": "STI Constituents", "companies": sti, "count": len(sti)},
         {"label": "iEdge Singapore Next 50", "companies": next50, "count": len(next50)},
         {"label": "Other Companies", "companies": others, "count": len(others)},
