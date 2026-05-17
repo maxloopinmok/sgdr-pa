@@ -106,8 +106,9 @@ MAINBOARD_COMPANIES: list[tuple[str, str, str, str]] = [
     ("E28", "FRENCKEN GROUP LIMITED", "Frencken", "Technology & Semicon"),
     ("544", "CSE GLOBAL LTD", "CSE Global", "Technology & Semicon"),
     ("JLB", "GRAND VENTURE TECHNOLOGY LIMITED", "Grand Venture", "Technology & Semicon"),
-    # UGAI placeholder — UltraGreen.ai is a recent IPO; verify SGX stock_code after first scrape.
-    ("UGAI", "ULTRAGREEN.AI LTD", "UltraGreen.ai", "Technology & Semicon"),
+    # ULG = UltraGreen.ai. Yahoo Finance lists this as ULG.SI; SGX's
+    # corporate-info ibmCode for it is 5SCH but the trading code is ULG.
+    ("ULG", "ULTRAGREEN.AI LTD", "UltraGreen.ai", "Technology & Semicon"),
 
     # --- Healthcare & Medtech (~6) ---
     ("BSL", "RAFFLES MEDICAL GROUP LTD", "Raffles Medical", "Healthcare & Medtech"),

@@ -92,7 +92,7 @@ NEXT50_CODES: frozenset[str] = frozenset({
     "P40U",  # Starhill Global REIT
     "CC3",   # StarHub
     "T82U",  # Suntec REIT
-    "UGAI",  # UltraGreen.ai
+    "ULG",   # UltraGreen.ai (ticker on Yahoo Finance is ULG.SI; legacy UGAI is deprecated)
     "558",   # UMS Integration
     "U10",   # UOB-Kay Hian
     "T6I",   # Valuemax

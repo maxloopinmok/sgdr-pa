@@ -6,7 +6,8 @@ from django.views.decorators.http import require_GET
 from apps.events.window import SGT, three_months, two_months
 from apps.prices.models import DailyBar
 
-from .data.index_membership import ETF_CODES, NEXT50_CODES, STI_CODES
+from .data.index_membership import NEXT50_CODES, STI_CODES
+from .etf_utils import is_etf
 from .models import Company
 
 
@@ -32,7 +33,7 @@ def companies_list(request):
 
     etfs, sti, next50, others = [], [], [], []
     for c in qs:
-        if c.sgx_code in ETF_CODES:
+        if is_etf(c.name, c.sgx_code):
             etfs.append(c)
         elif c.sgx_code in STI_CODES:
             sti.append(c)
