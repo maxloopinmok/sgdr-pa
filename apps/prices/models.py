@@ -2,7 +2,12 @@ from django.db import models
 
 
 class DailyBar(models.Model):
-    """OHLCV bar synced from the laptop's yfinance fetch."""
+    """One OHLCV bar per (company, trading date) from yfinance.
+
+    Source ticker is `company.ticker` (e.g. "A17U.SI"). Bars are upserted by
+    the laptop after each scrape and pushed to PA via /sync/. Stored decimal
+    values use string-safe DecimalField so SQLite/Postgres round-trip cleanly.
+    """
     company = models.ForeignKey(
         "companies.Company", on_delete=models.CASCADE, related_name="daily_bars"
     )
