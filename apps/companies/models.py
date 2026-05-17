@@ -16,6 +16,12 @@ class Company(models.Model):
         default=LISTING_BOARD_MAINBOARD,
     )
     investor_relations_url = models.URLField(blank=True)
+    # Free-text "DD Month YYYY on SGX <Board>" string as SGX renders it on
+    # /securities/corporate-information. May contain multiple board transitions,
+    # e.g. "11 May 1992 on SGX Sesdaq 7 November 2008 on SGX Mainboard".
+    listed_date_raw = models.CharField(max_length=255, blank=True)
+    # Parsed: list of {"date": "...", "board": "..."} entries.
+    listings_json = models.JSONField(default=list, blank=True)
     last_synced = models.DateTimeField(null=True, blank=True)
 
     class Meta:

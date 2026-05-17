@@ -8,6 +8,15 @@
     <span class="ml-2 font-mono text-base text-slate-500">{{ company.ticker }}</span>
   </h1>
   <p class="text-sm text-slate-600">{{ company.name }}{% if company.sector %} · {{ company.sector }}{% endif %}</p>
+  {% if company.listings_json %}
+  <ul class="text-xs text-slate-500 list-none">
+    {% for entry in company.listings_json %}
+    <li>Listed: {{ entry.date }} on {{ entry.board }}</li>
+    {% endfor %}
+  </ul>
+  {% elif company.listed_date_raw %}
+  <p class="text-xs text-slate-500">Listed: {{ company.listed_date_raw }}</p>
+  {% endif %}
 </section>
 
 <section class="mt-6">

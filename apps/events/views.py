@@ -361,6 +361,15 @@ def sync_in(request):
 
     companies = payload.get("companies") or []
     events = payload.get("events") or []
+    # When the laptop chunks the sync (universe at ~393 companies exceeds the
+    # single-payload size for Django's default DATA_UPLOAD_MAX_MEMORY_SIZE),
+    # each chunk carries ``tickers_in_chunk`` and the prune below must be
+    # scoped to those tickers — otherwise chunk N would prune chunks 1..N-1's
+    # rows it never sees. Absent the field we fall back to the legacy
+    # global-prune behaviour.
+    tickers_in_chunk = payload.get("tickers_in_chunk")
+    chunk_scope = (set(tickers_in_chunk)
+                   if isinstance(tickers_in_chunk, list) else None)
 
     companies_added = companies_updated = 0
     events_added = events_updated = events_skipped = 0
@@ -383,6 +392,8 @@ def sync_in(request):
                     "sector": c.get("sector", ""),
                     "listing_board": c.get("listing_board", "Mainboard"),
                     "investor_relations_url": c.get("investor_relations_url", ""),
+                    "listed_date_raw": c.get("listed_date_raw", ""),
+                    "listings_json": c.get("listings_json") or [],
                 },
             )
             companies_added += int(created)
@@ -521,6 +532,10 @@ def sync_in(request):
                 in_window = DailyBar.objects.filter(
                     date__gte=price_ws, date__lte=price_we
                 )
+                if chunk_scope is not None:
+                    in_window = in_window.filter(
+                        company__ticker__in=chunk_scope
+                    )
                 to_delete_ids = []
                 for bid, cid, bdate in in_window.values_list(
                     "id", "company_id", "date"
@@ -535,10 +550,16 @@ def sync_in(request):
         # Prune events inside the window that didn't appear in the payload.
         # Identity is by primary key — OTHER rows can have multiple legitimate
         # entries per (company, event_type, event_date), so a tuple key would
-        # over-prune.
-        in_window_pks = Event.objects.filter(
+        # over-prune. When the payload is a chunk (carries tickers_in_chunk),
+        # scope to that chunk's tickers so other chunks' rows aren't deleted.
+        in_window_qs = Event.objects.filter(
             event_date__gte=ws, event_date__lte=we
-        ).values_list("id", flat=True)
+        )
+        if chunk_scope is not None:
+            in_window_qs = in_window_qs.filter(
+                company__ticker__in=chunk_scope
+            )
+        in_window_pks = in_window_qs.values_list("id", flat=True)
         to_delete_ids = [pk for pk in in_window_pks if pk not in seen_event_pks]
         events_pruned = 0
         if to_delete_ids:
