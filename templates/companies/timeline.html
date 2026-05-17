@@ -41,12 +41,12 @@
             <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
                title="Ex-Dividend Date: {{ row.when|date:"d M Y" }}{% if row.currency or row.amount %} — {{ row.currency }} {{ row.amount }}{% endif %}"
                class="flex items-center gap-3 px-4 py-3 text-sm bg-amber-50 hover:bg-amber-100 transition-colors">
-              <time class="w-40 text-slate-600">Ex {{ row.when|date:"D, d M Y" }}</time>
+              <time class="w-40 text-slate-600">{{ row.when|date:"D, d M Y" }}</time>
               <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
                 Ex-Dividend Date
               </span>
               <span class="flex-1 truncate text-sky-700 hover:underline">
-                {% if row.currency or row.amount %}{{ row.currency }} {{ row.amount }} — {% endif %}{{ e.title }}
+                {{ e.title }}{% if row.currency or row.amount %} — Declared Dividends: {{ row.currency }} {{ row.amount }}{% endif %}
               </span>
             </a>
           {% else %}
