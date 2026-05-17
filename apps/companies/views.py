@@ -205,10 +205,55 @@ def company_timeline(request, ticker: str):
     price_start, price_end = two_months()
     history_rows = _build_history_rows(company, price_start, price_end)
 
+    # Upcoming Events — future AGM/EGM meetings and ex-dividend dates only
+    # when the structured schedule field is populated (meeting_datetime for
+    # AGM/EGM, ex_date for dividends). Dedup by (event_type, schedule_key)
+    # keeping the most-recently-updated row, mirroring the schedule-mode
+    # logic in apps/events/views.py:api_events so a single AGM filed under
+    # multiple announcements (Notice + Form 1.1, etc.) shows once.
+    now = datetime.now(SGT)
+    today = now.date()
+    agm_upcoming = company.events.filter(
+        view_category="AGM_EGM", meeting_datetime__gt=now,
+    ).order_by("meeting_datetime", "-updated_at")
+    div_upcoming = company.events.filter(
+        view_category="DIVIDEND", ex_date__gt=today,
+    ).order_by("ex_date", "-updated_at")
+    upcoming = []
+    seen_agm: set = set()
+    for e in agm_upcoming:
+        key = (e.event_type, e.meeting_datetime)
+        if key in seen_agm:
+            continue
+        seen_agm.add(key)
+        upcoming.append({
+            "kind": "agm",
+            "event": e,
+            "when": e.meeting_datetime.astimezone(SGT),
+            "sort_key": e.meeting_datetime,
+        })
+    seen_div: set = set()
+    for e in div_upcoming:
+        key = (e.event_type, e.ex_date)
+        if key in seen_div:
+            continue
+        seen_div.add(key)
+        details = e.details_json or {}
+        upcoming.append({
+            "kind": "ex_div",
+            "event": e,
+            "when": e.ex_date,
+            "currency": (details.get("dividend_currency") or "").strip(),
+            "amount": (details.get("dividend_amount") or "").strip(),
+            "sort_key": datetime.combine(e.ex_date, datetime.min.time(), tzinfo=SGT),
+        })
+    upcoming.sort(key=lambda r: r["sort_key"])
+
     return render(request, "companies/timeline.html", {
         "company": company,
         "events": events,
         "history_rows": history_rows,
         "price_start": price_start,
         "price_end": price_end,
+        "upcoming": upcoming,
     })

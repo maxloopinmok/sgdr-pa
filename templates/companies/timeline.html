@@ -11,6 +11,65 @@
 </section>
 
 <section class="mt-6">
+  <h2 class="text-sm font-semibold text-slate-700 mb-2">Upcoming Events</h2>
+  <div class="bg-white rounded shadow-sm divide-y">
+    {% for row in upcoming %}
+      {% with e=row.event %}
+        {% if row.kind == "agm" %}
+          {% if e.sgx_announcement_url %}
+            <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+               title="Meeting: {{ row.when|date:"d M Y, H:i" }} SGT"
+               class="flex items-center gap-3 px-4 py-3 text-sm bg-emerald-50 hover:bg-emerald-100 transition-colors">
+              <time class="w-40 text-slate-600">{{ row.when|date:"D, d M Y, H:i" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                {{ e.get_event_type_display }}
+              </span>
+              <span class="flex-1 truncate text-sky-700 hover:underline">{{ e.title }}</span>
+            </a>
+          {% else %}
+            <div class="flex items-center gap-3 px-4 py-3 text-sm bg-emerald-50"
+                 title="Meeting: {{ row.when|date:"d M Y, H:i" }} SGT">
+              <time class="w-40 text-slate-600">{{ row.when|date:"D, d M Y, H:i" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                {{ e.get_event_type_display }}
+              </span>
+              <span class="flex-1 truncate">{{ e.title }}</span>
+            </div>
+          {% endif %}
+        {% elif row.kind == "ex_div" %}
+          {% if e.sgx_announcement_url %}
+            <a href="{{ e.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
+               title="Ex-Dividend Date: {{ row.when|date:"d M Y" }}{% if row.currency or row.amount %} — {{ row.currency }} {{ row.amount }}{% endif %}"
+               class="flex items-center gap-3 px-4 py-3 text-sm bg-amber-50 hover:bg-amber-100 transition-colors">
+              <time class="w-40 text-slate-600">Ex {{ row.when|date:"D, d M Y" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                Ex-Dividend Date
+              </span>
+              <span class="flex-1 truncate text-sky-700 hover:underline">
+                {% if row.currency or row.amount %}{{ row.currency }} {{ row.amount }} — {% endif %}{{ e.title }}
+              </span>
+            </a>
+          {% else %}
+            <div class="flex items-center gap-3 px-4 py-3 text-sm bg-amber-50"
+                 title="Ex-Dividend Date: {{ row.when|date:"d M Y" }}{% if row.currency or row.amount %} — {{ row.currency }} {{ row.amount }}{% endif %}">
+              <time class="w-40 text-slate-600">Ex {{ row.when|date:"D, d M Y" }}</time>
+              <span class="rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                Ex-Dividend Date
+              </span>
+              <span class="flex-1 truncate">
+                {% if row.currency or row.amount %}{{ row.currency }} {{ row.amount }} — {% endif %}{{ e.title }}
+              </span>
+            </div>
+          {% endif %}
+        {% endif %}
+      {% endwith %}
+    {% empty %}
+      <p class="px-4 py-6 text-center text-sm text-slate-500">No scheduled meetings or ex-dividend dates ahead.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="mt-6">
   <h2 class="text-sm font-semibold text-slate-700 mb-1">
     Price &amp; Event History
     <span class="ml-2 font-normal text-slate-500">{{ price_start|date:"d M Y" }} — {{ price_end|date:"d M Y" }}</span>
