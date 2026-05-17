@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
@@ -85,11 +85,11 @@ def calendar_other(request):
     partial; full requests get the wrapping page.
     """
     today = datetime.now(SGT).date()
-    # Window = first day of last month → today.
-    if today.month == 1:
-        window_start = today.replace(year=today.year - 1, month=12, day=1)
-    else:
-        window_start = today.replace(month=today.month - 1, day=1)
+    # Window = previous Monday → today. "Previous Monday" is the Monday
+    # before this week's Monday: if today is Mon, that's 7 days ago; if
+    # today is Sun, that's ~13 days ago. Gives the user a 1–2 week view.
+    this_monday = today - timedelta(days=today.weekday())
+    window_start = this_monday - timedelta(days=7)
     q = (request.GET.get("q") or "").strip()
 
     rows_qs = (Event.objects
@@ -102,20 +102,13 @@ def calendar_other(request):
                # rows still missing a datetime (older sync).
                .order_by("-event_datetime", "-event_date", "company__ticker", "-id"))
 
-    if q:
-        from django.db.models import Q
-        rows_qs = rows_qs.filter(
-            Q(company__ticker__icontains=q)
-            | Q(company__short_name__icontains=q)
-            | Q(company__name__icontains=q)
-        )
-
     rows = [{
         "id": e.pk,
         "event_date": e.event_date,
         "event_datetime": e.event_datetime,
         "ticker": e.company.ticker,
         "short_name": e.company.short_name,
+        "name": e.company.name,
         "title": e.title,
         "event_type": e.event_type,
         "sgx_announcement_url": e.sgx_announcement_url,

@@ -2,6 +2,7 @@
 {% if row.sgx_announcement_url %}
 <a href="{{ row.sgx_announcement_url }}" target="_blank" rel="noopener noreferrer"
    class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-slate-50"
+   data-search="{{ row.ticker|lower }} {{ row.short_name|lower }} {{ row.name|lower }} {{ row.title|lower }}"
    {% if row.event_datetime %}title="Announcement Time: {{ row.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}>
   <time class="w-24 text-slate-500">{{ row.event_date|date:"D, d M Y" }}</time>
   <span class="w-40 truncate text-slate-600">{{ row.short_name }}</span>
@@ -10,6 +11,7 @@
 </a>
 {% else %}
 <div class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm"
+     data-search="{{ row.ticker|lower }} {{ row.short_name|lower }} {{ row.name|lower }} {{ row.title|lower }}"
      {% if row.event_datetime %}title="Announcement Time: {{ row.event_datetime|date:"d M Y, H:i" }} SGT"{% endif %}>
   <time class="w-24 text-slate-500">{{ row.event_date|date:"D, d M Y" }}</time>
   <span class="w-40 truncate text-slate-600">{{ row.short_name }}</span>

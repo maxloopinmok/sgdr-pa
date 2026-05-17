@@ -18,19 +18,50 @@
 
 <section class="mt-4">
   <input type="search"
+         id="other-filter"
          name="q"
          value="{{ query }}"
-         placeholder="Filter by ticker or company name…"
+         placeholder="Filter by ticker, company name, or words in announcement title…"
          autocomplete="off"
-         class="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-         hx-get="{% url 'calendar_other' %}"
-         hx-trigger="input changed delay:250ms, search"
-         hx-target="#other-rows"
-         hx-swap="innerHTML"
-         hx-push-url="true">
+         class="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none">
 </section>
 
 <section class="mt-4 bg-white rounded shadow-sm divide-y" id="other-rows">
   {% include "calendar/_other_rows.html" %}
 </section>
+
+<script>
+(function () {
+  const input = document.getElementById("other-filter");
+  const container = document.getElementById("other-rows");
+  if (!input || !container) return;
+
+  function apply() {
+    const terms = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let visible = 0;
+    for (const row of container.children) {
+      const hay = row.dataset.search || "";
+      const match = terms.every(t => hay.includes(t));
+      row.hidden = !match;
+      if (match) visible++;
+    }
+    let empty = document.getElementById("other-empty");
+    if (visible === 0 && terms.length) {
+      if (!empty) {
+        empty = document.createElement("p");
+        empty.id = "other-empty";
+        empty.className = "px-4 py-8 text-center text-sm text-slate-500";
+        container.appendChild(empty);
+      }
+      empty.textContent = "No matches for “" + input.value + "” in this window.";
+      empty.hidden = false;
+    } else if (empty) {
+      empty.hidden = true;
+    }
+  }
+
+  input.addEventListener("input", apply);
+  if (input.value) apply();
+})();
+</script>
 {% endblock %}
