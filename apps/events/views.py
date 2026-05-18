@@ -394,6 +394,7 @@ def sync_in(request):
                     "investor_relations_url": c.get("investor_relations_url", ""),
                     "listed_date_raw": c.get("listed_date_raw", ""),
                     "listings_json": c.get("listings_json") or [],
+                    "country": c.get("country", ""),
                 },
             )
             companies_added += int(created)

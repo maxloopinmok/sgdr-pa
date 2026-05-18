@@ -22,6 +22,11 @@ class Company(models.Model):
     listed_date_raw = models.CharField(max_length=255, blank=True)
     # Parsed: list of {"date": "...", "board": "..."} entries.
     listings_json = models.JSONField(default=list, blank=True)
+    # Country of incorporation as SGX reports it on /corporate-information
+    # (e.g. "SINGAPORE", "CHINA", "BERMUDA"). Blank for legacy rows seeded
+    # before the field existed. Surfaced on the companies list page as
+    # "Foo Co (from China)" when the value is non-SG.
+    country = models.CharField(max_length=64, blank=True)
     # When False, the row is hidden from the companies list and skipped by
     # the per-company SGX scrape and yfinance OHLCV fetch. Set by the
     # mark_inactive_companies command when a Company has no OHLCV bars AND

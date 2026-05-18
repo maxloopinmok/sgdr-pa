@@ -26,7 +26,9 @@
        href="{% url 'company_timeline' c.ticker %}">
       <span class="w-8 text-right text-slate-400 tabular-nums">{{ n }}.</span>
       <span class="w-24 font-mono text-xs text-slate-700">{{ c.ticker }}</span>
-      <span class="flex-1 truncate">{{ c.short_name|default:c.name }}</span>
+      <span class="flex-1 truncate">
+        {{ c.short_name|default:c.name }}{% if c.country and c.country|upper != "SINGAPORE" %}<span class="ml-1 text-xs text-slate-500">(from {{ c.country|title }})</span>{% endif %}
+      </span>
       <span class="hidden sm:inline text-xs text-slate-500 truncate max-w-md">{{ c.name }}</span>
     </a>
     {% empty %}
