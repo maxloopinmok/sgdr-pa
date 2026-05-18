@@ -60,11 +60,11 @@ NEXT50_CODES: frozenset[str] = frozenset({
     "8C8U",  # Centurion Accommodation REIT
     "OU8",   # Centurion Corp
     "G92",   # China Aviation Oil
-    "CH8",   # China Sunsine
+    "QES",   # China Sunsine Chemical Holdings (was CH8; Yahoo Finance uses QES.SI)
     "C52",   # ComfortDelGro
     "544",   # CSE Global
     "DCRU",  # Digital Core REIT
-    "J91U",  # ESR-REIT
+    "9A4U",  # ESR REIT (was J91U; Yahoo Finance uses 9A4U.SI)
     "Q5T",   # Far East Hospitality Trust
     "EB5",   # First Resources
     "F03",   # Food Empire
