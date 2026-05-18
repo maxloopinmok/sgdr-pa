@@ -1,8 +1,7 @@
 """One-off cleanup: delete Company rows on PA whose ticker is not in
-the laptop's current authoritative set (post-dedupe_sgx_seed).
+the laptop's current authoritative set.
 
-Generated on 2026-05-19 after deduping the seed_mainboard_from_sgx
-duplicates. Run on PA once, then this file can be removed.
+Regenerated 2026-05-19 (after T24/5IC swap fix). Run on PA once.
 
 Usage on PA bash console:
     cd ~/sgdividendsreports
@@ -117,6 +116,7 @@ KEEP = {
     '5GI.SI',
     '5GJ.SI',
     '5GRT.SI',
+    '5IC.SI',
     '5IE.SI',
     '5IG.SI',
     '5JK.SI',
