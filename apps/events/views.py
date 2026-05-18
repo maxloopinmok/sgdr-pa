@@ -395,6 +395,7 @@ def sync_in(request):
                     "listed_date_raw": c.get("listed_date_raw", ""),
                     "listings_json": c.get("listings_json") or [],
                     "country": c.get("country", ""),
+                    "is_active": bool(c.get("is_active", True)),
                 },
             )
             companies_added += int(created)
