@@ -28,7 +28,8 @@ def companies_list(request):
     1..N so the list reads as one continuous count.
     """
     qs = (Company.objects
-          .filter(listing_board=Company.LISTING_BOARD_MAINBOARD)
+          .filter(listing_board=Company.LISTING_BOARD_MAINBOARD,
+                  is_active=True)
           .order_by("name"))
 
     etfs, sti, next50, others = [], [], [], []

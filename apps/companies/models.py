@@ -22,6 +22,12 @@ class Company(models.Model):
     listed_date_raw = models.CharField(max_length=255, blank=True)
     # Parsed: list of {"date": "...", "board": "..."} entries.
     listings_json = models.JSONField(default=list, blank=True)
+    # When False, the row is hidden from the companies list and skipped by
+    # the per-company SGX scrape and yfinance OHLCV fetch. Set by the
+    # mark_inactive_companies command when a Company has no OHLCV bars AND
+    # no events in the rolling window — typically delisted, suspended, or
+    # never-publicly-traded entries that survived the bootstrap seed.
+    is_active = models.BooleanField(default=True, db_index=True)
     last_synced = models.DateTimeField(null=True, blank=True)
 
     class Meta:
