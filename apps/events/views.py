@@ -596,12 +596,32 @@ def sync_in(request):
         if to_delete_ids:
             events_pruned, _ = Event.objects.filter(id__in=to_delete_ids).delete()
 
+    # Post-receive: re-evaluate Company.is_active. Skip on intermediate
+    # chunks of a multi-chunk run (would deactivate companies whose events
+    # are still arriving in later chunks). Either a single non-chunked
+    # payload or the final chunk triggers it.
+    chunk_index = payload.get("chunk_index")
+    chunk_total = payload.get("chunk_total")
+    is_final_chunk = (
+        not isinstance(chunk_index, int)
+        or not isinstance(chunk_total, int)
+        or chunk_index >= chunk_total
+    )
+    deactivated = reactivated = active_total = 0
+    if is_final_chunk:
+        from apps.companies.inactive import mark_inactive
+        result = mark_inactive(ws, we)
+        deactivated = result.deactivated
+        reactivated = result.reactivated
+        active_total = result.active_total
+
     logger.info(
         "sync_in: window=%s..%s companies +%d ~%d, events +%d ~%d -%d skipped %d, "
-        "bars +%d ~%d -%d skipped %d",
+        "bars +%d ~%d -%d skipped %d, mark_inactive(-%d +%d active=%d, final=%s)",
         ws, we, companies_added, companies_updated,
         events_added, events_updated, events_pruned, events_skipped,
         bars_added, bars_updated, bars_pruned, bars_skipped,
+        deactivated, reactivated, active_total, is_final_chunk,
     )
     return JsonResponse({
         "ok": True,
@@ -618,4 +638,7 @@ def sync_in(request):
         "bars_updated": bars_updated,
         "bars_pruned": bars_pruned,
         "bars_skipped": bars_skipped,
+        "companies_deactivated": deactivated,
+        "companies_reactivated": reactivated,
+        "active_companies_total": active_total,
     })
