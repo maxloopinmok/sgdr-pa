@@ -343,6 +343,58 @@ def active_companies(request):
     return JsonResponse({"companies": rows})
 
 
+@require_GET
+def events_detail_needed(request):
+    """Return SGX announcement IDs for events still missing detail-page data.
+
+    Auth: ``Authorization: Bearer <SYNC_SHARED_TOKEN>``.
+
+    Query params:
+        window_start, window_end — ISO dates. Required.
+
+    Response:
+        {"announcement_ids": ["...", "..."]}
+
+    The GH Actions scraper hits this once at the start of each run so it
+    can skip detail-page fetches for events PA already has filled. AGM/EGM
+    rows need detail when meeting_datetime IS NULL; DIVIDEND rows when
+    ex_date IS NULL OR details_json doesn't carry dividend_amount /
+    dividend_currency (same condition the laptop's parse_dividend_details
+    command uses).
+    """
+    expected = getattr(settings, "SYNC_SHARED_TOKEN", "") or ""
+    if not expected:
+        return HttpResponse("sync token not configured", status=503)
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[7:] != expected:
+        return HttpResponse("unauthorized", status=401)
+
+    try:
+        ws = datetime.fromisoformat(request.GET["window_start"]).date()
+        we = datetime.fromisoformat(request.GET["window_end"]).date()
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest("missing/invalid window_start/window_end")
+
+    from django.db.models import Q
+
+    qs = Event.objects.filter(event_date__gte=ws, event_date__lte=we)
+    needs_agm = qs.filter(view_category="AGM_EGM", meeting_datetime__isnull=True)
+    needs_div = qs.filter(
+        Q(view_category="DIVIDEND")
+        & (Q(ex_date__isnull=True)
+           | Q(details_json__dividend_amount__isnull=True)
+           | Q(details_json__dividend_currency__isnull=True))
+    )
+    ids = list(
+        needs_agm.values_list("sgx_announcement_id", flat=True)
+    ) + list(
+        needs_div.values_list("sgx_announcement_id", flat=True)
+    )
+    # Drop empty IDs (very old rows synced before announcement_id existed).
+    ids = [i for i in ids if i]
+    return JsonResponse({"announcement_ids": ids})
+
+
 # --- Laptop -> PA sync endpoint --------------------------------------------
 
 @csrf_exempt

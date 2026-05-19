@@ -17,6 +17,10 @@ api_patterns = [
     # Bearer-token-protected, read-only. Lets the GH Actions scraper pull
     # the active-companies list at the start of each run.
     path("sync/active-companies/", views.active_companies, name="active_companies"),
+    # Bearer-token-protected, read-only. Lets the GH Actions scraper skip
+    # detail-page fetches for AGM/DIV events PA already has filled.
+    path("sync/events-detail-needed/", views.events_detail_needed,
+         name="events_detail_needed"),
 ]
 
 event_patterns = [
