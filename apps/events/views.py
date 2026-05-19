@@ -314,6 +314,35 @@ def search(request):
     return JsonResponse(payload, safe=False)
 
 
+# --- Read-only endpoint for the GH Actions scraper -------------------------
+
+@require_GET
+def active_companies(request):
+    """Return the list of active companies for the GH Actions scraper.
+
+    Auth: ``Authorization: Bearer <SYNC_SHARED_TOKEN>`` — same token as
+    ``sync_in``. The GH Actions runner has no persistent DB, so it pulls
+    this list at the start of each scrape run to know which company names
+    to query SGX for.
+
+    Response:
+        {"companies": [{"ticker", "sgx_code", "name", "short_name"}, ...]}
+    """
+    from apps.companies.models import Company
+
+    expected = getattr(settings, "SYNC_SHARED_TOKEN", "") or ""
+    if not expected:
+        return HttpResponse("sync token not configured", status=503)
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[7:] != expected:
+        return HttpResponse("unauthorized", status=401)
+
+    rows = list(Company.objects.filter(is_active=True)
+                .values("ticker", "sgx_code", "name", "short_name")
+                .order_by("ticker"))
+    return JsonResponse({"companies": rows})
+
+
 # --- Laptop -> PA sync endpoint --------------------------------------------
 
 @csrf_exempt

@@ -14,6 +14,9 @@ api_patterns = [
     path("search/", views.search, name="search"),
     # Bearer-token-protected. Receives the laptop's window of events.
     path("sync/", views.sync_in, name="sync_in"),
+    # Bearer-token-protected, read-only. Lets the GH Actions scraper pull
+    # the active-companies list at the start of each run.
+    path("sync/active-companies/", views.active_companies, name="active_companies"),
 ]
 
 event_patterns = [
