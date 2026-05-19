@@ -395,6 +395,61 @@ def events_detail_needed(request):
     return JsonResponse({"announcement_ids": ids})
 
 
+@require_GET
+def events_snapshot(request):
+    """Return current PA state for every event in the window.
+
+    Auth: ``Authorization: Bearer <SYNC_SHARED_TOKEN>``.
+
+    Query params:
+        window_start, window_end — ISO dates. Required.
+
+    Response:
+        {"events": {"<sgx_announcement_id>": {
+            "view_category", "event_date",
+            "meeting_datetime", "ex_date",
+            "dividend_amount", "dividend_currency"
+        }}}
+
+    The GH Actions scraper uses this to decide which AGM/DIV events
+    need a detail-page fetch (any with the relevant fields NULL) and
+    which can be echoed back unchanged. Echoing requires the
+    orchestrator to send PA's current values verbatim — otherwise the
+    upsert in sync_in writes None and the detail fields get wiped.
+    """
+    expected = getattr(settings, "SYNC_SHARED_TOKEN", "") or ""
+    if not expected:
+        return HttpResponse("sync token not configured", status=503)
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[7:] != expected:
+        return HttpResponse("unauthorized", status=401)
+
+    try:
+        ws = datetime.fromisoformat(request.GET["window_start"]).date()
+        we = datetime.fromisoformat(request.GET["window_end"]).date()
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest("missing/invalid window_start/window_end")
+
+    qs = (Event.objects
+          .filter(event_date__gte=ws, event_date__lte=we)
+          .exclude(sgx_announcement_id="")
+          .values("sgx_announcement_id", "view_category", "event_date",
+                  "meeting_datetime", "ex_date", "details_json"))
+    out: dict[str, dict] = {}
+    for row in qs:
+        details = row["details_json"] or {}
+        out[row["sgx_announcement_id"]] = {
+            "view_category": row["view_category"],
+            "event_date": row["event_date"].isoformat() if row["event_date"] else None,
+            "meeting_datetime": (row["meeting_datetime"].isoformat()
+                                 if row["meeting_datetime"] else None),
+            "ex_date": row["ex_date"].isoformat() if row["ex_date"] else None,
+            "dividend_amount": details.get("dividend_amount"),
+            "dividend_currency": details.get("dividend_currency"),
+        }
+    return JsonResponse({"events": out})
+
+
 # --- Laptop -> PA sync endpoint --------------------------------------------
 
 @csrf_exempt

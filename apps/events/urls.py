@@ -19,8 +19,16 @@ api_patterns = [
     path("sync/active-companies/", views.active_companies, name="active_companies"),
     # Bearer-token-protected, read-only. Lets the GH Actions scraper skip
     # detail-page fetches for AGM/DIV events PA already has filled.
+    # Deprecated: use events-snapshot instead — the orchestrator needs
+    # PA's existing field values to echo them back unchanged (otherwise
+    # the upsert wipes detail fields for skipped events).
     path("sync/events-detail-needed/", views.events_detail_needed,
          name="events_detail_needed"),
+    # Bearer-token-protected, read-only. Returns the current state of
+    # every event in the window so GH Actions can echo unchanged values
+    # for events whose detail it doesn't re-fetch.
+    path("sync/events-snapshot/", views.events_snapshot,
+         name="events_snapshot"),
 ]
 
 event_patterns = [
