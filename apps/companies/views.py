@@ -109,6 +109,12 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
         company=company, date__gte=price_start, date__lte=price_end
     )}
     highlight = _bar_highlight_flags(bars)
+    # Newest bar date we have for THIS company. Weekdays after this
+    # are reported as "No data yet" (Yahoo hasn't published the NAV /
+    # the workflow hasn't run since then); weekdays before but missing
+    # a bar are reported as "No trading" (the company genuinely didn't
+    # trade that day — suspended, delisted, public holiday, etc.).
+    latest_bar_date = max(bars.keys()) if bars else None
 
     # Pre-bucket announcement events by (date, slot) where slot is "pre" or "post".
     events = (company.events
@@ -153,6 +159,8 @@ def _build_history_rows(company: Company, price_start: date, price_end: date) ->
             })
         elif cur.weekday() >= 5:
             rows.append({"kind": "no_trade", "date": cur, "reason": "Weekend"})
+        elif latest_bar_date is None or cur > latest_bar_date:
+            rows.append({"kind": "no_trade", "date": cur, "reason": "No data yet"})
         else:
             rows.append({"kind": "no_trade", "date": cur, "reason": "No trading"})
 
